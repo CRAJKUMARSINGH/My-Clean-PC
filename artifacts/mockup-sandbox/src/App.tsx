@@ -168,7 +168,8 @@ function AutoClean() {
       label: "Every 30 Minutes",
       sublabel: "For heavy AI IDE users",
       detail: "Clears accumulating caches constantly. Best if you use Cursor, Windsurf or similar tools all day.",
-      file: "schedule-30min.bat",
+      bat: "schedule-30min.bat",
+      ps1: "schedule-30min.ps1",
       color: "border-violet-200 hover:border-violet-400 hover:bg-violet-50",
       badge: "",
     },
@@ -178,7 +179,8 @@ function AutoClean() {
       label: "Every Week",
       sublabel: "Monday at 9:00 AM",
       detail: "Runs every Monday morning. Keeps your PC consistently clean without being intrusive.",
-      file: "schedule-1week.bat",
+      bat: "schedule-1week.bat",
+      ps1: "schedule-1week.ps1",
       color: "border-blue-300 bg-blue-50 hover:border-blue-500",
       badge: "Recommended",
     },
@@ -188,7 +190,8 @@ function AutoClean() {
       label: "Every 15 Days",
       sublabel: "At 9:00 AM",
       detail: "Gentle clean every two weeks. Good for light use or if your disk space isn't a concern.",
-      file: "schedule-15days.bat",
+      bat: "schedule-15days.bat",
+      ps1: "schedule-15days.ps1",
       color: "border-gray-200 hover:border-gray-400 hover:bg-gray-50",
       badge: "",
     },
@@ -247,14 +250,24 @@ function AutoClean() {
                 <h4 className="font-bold text-gray-900 mb-0.5">{s.label}</h4>
                 <p className="text-xs text-gray-400 mb-2">{s.sublabel}</p>
                 <p className="text-xs text-gray-500 leading-relaxed mb-4">{s.detail}</p>
-                <a
-                  href={`${BASE}/${s.file}`}
-                  download={s.file}
-                  className="flex items-center gap-2 bg-blue-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-blue-700 transition-colors justify-center"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  {s.file}
-                </a>
+                <div className="flex gap-2">
+                  <a
+                    href={`${BASE}/${s.bat}`}
+                    download={s.bat}
+                    className="flex-1 flex items-center gap-1.5 bg-blue-600 text-white text-xs font-bold px-3 py-2.5 rounded-xl hover:bg-blue-700 transition-colors justify-center"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    .bat
+                  </a>
+                  <a
+                    href={`${BASE}/${s.ps1}`}
+                    download={s.ps1}
+                    className="flex-1 flex items-center gap-1.5 bg-gray-700 text-white text-xs font-bold px-3 py-2.5 rounded-xl hover:bg-gray-800 transition-colors justify-center"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    .ps1
+                  </a>
+                </div>
               </div>
             ))}
           </div>
@@ -388,10 +401,16 @@ function Download() {
             <div className="text-3xl mb-3">🗑️</div>
             <h3 className="text-white font-bold mb-1">Uninstall</h3>
             <p className="text-red-200 text-xs mb-4">Removes the scheduled task and all installed files</p>
-            <a href={`${BASE}/uninstall.bat`} download="uninstall.bat" className="inline-flex items-center gap-1.5 bg-red-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-red-600 transition-colors w-full justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              uninstall.bat
-            </a>
+            <div className="flex gap-2">
+              <a href={`${BASE}/uninstall.bat`} download="uninstall.bat" className="flex-1 inline-flex items-center gap-1.5 bg-red-500 text-white font-bold text-sm px-3 py-2.5 rounded-xl hover:bg-red-600 transition-colors justify-center">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                .bat
+              </a>
+              <a href={`${BASE}/uninstall.ps1`} download="uninstall.ps1" className="flex-1 inline-flex items-center gap-1.5 bg-red-800 text-white font-bold text-sm px-3 py-2.5 rounded-xl hover:bg-red-900 transition-colors justify-center">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                .ps1
+              </a>
+            </div>
           </div>
         </div>
         <div className="bg-white/10 rounded-xl p-4 text-left">
