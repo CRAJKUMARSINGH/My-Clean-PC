@@ -53,6 +53,41 @@ function CodeBlock({ code, dark: forceDark = false }: { code: string; dark?: boo
 }
 
 /* ─── Navbar ──────────────────────────────────────────────────────── */
+function ShareButton() {
+  const [state, setState] = useState<"idle" | "copied" | "error">("idle");
+  const share = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "My Clean PC", text: "Free Windows junk cleaner — silently wipes 9 categories.", url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setState("copied");
+        setTimeout(() => setState("idle"), 2500);
+      }
+    } catch {
+      setState("error");
+      setTimeout(() => setState("idle"), 2500);
+    }
+  };
+  return (
+    <button onClick={share} title="Share this page"
+      className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-full border transition-all ${
+        state === "copied" ? "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-400"
+        : state === "error"  ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400"
+        : "border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+      }`}>
+      {state === "copied" ? (
+        <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg> Copied!</>
+      ) : state === "error" ? (
+        <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Failed</>
+      ) : (
+        <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Share</>
+      )}
+    </button>
+  );
+}
+
 function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const { dark, toggle } = useDark();
@@ -76,7 +111,8 @@ function Navbar() {
           <a href="#safety" className="hover:text-gray-900 dark:hover:text-white transition-colors">Safety</a>
           <a href="#download" className="hover:text-gray-900 dark:hover:text-white transition-colors">Download</a>
         </nav>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <ShareButton />
           <button onClick={toggle}
             className="w-9 h-9 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             title={dark ? "Switch to light mode" : "Switch to dark mode"}>
