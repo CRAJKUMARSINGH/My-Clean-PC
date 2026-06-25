@@ -15,6 +15,31 @@ function DownloadIcon({ size = 14 }: { size?: number }) {
   );
 }
 
+function CodeBlock({ code, dark = false }: { code: string; dark?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <div className={`relative flex items-center gap-2 mt-1.5 rounded-lg px-3 py-2 font-mono text-[11px] group ${dark ? "bg-black/40 text-green-400" : "bg-gray-900 text-green-400"}`}>
+      <span className="flex-1 select-all break-all">{code}</span>
+      <button
+        onClick={copy}
+        title="Copy to clipboard"
+        className={`flex-shrink-0 flex items-center gap-1 text-[10px] font-sans font-semibold px-2 py-1 rounded-md transition-all ${copied ? "bg-green-500/20 text-green-300" : "bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white"}`}
+      >
+        {copied
+          ? <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg> Copied</>
+          : <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy</>
+        }
+      </button>
+    </div>
+  );
+}
+
 /* ─── Navbar ──────────────────────────────────────────────────────── */
 function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -218,16 +243,16 @@ function PsHelp() {
             <p className="text-sm text-gray-500 mb-5">Windows blocks .ps1 scripts by default. Pick any method below:</p>
             <ol className="space-y-4">
               {[
-                { n: "1", title: "Right-click → Run with PowerShell", body: 'Right-click the .ps1 file → "Run with PowerShell". If asked about execution policy, press Y then Enter.' },
+                { n: "1", title: "Right-click → Run with PowerShell", body: 'Right-click the .ps1 file → "Run with PowerShell". If asked about execution policy, press Y then Enter.', code: null },
                 { n: "2", title: "From an Admin PowerShell window", body: null, code: "PowerShell -ExecutionPolicy Bypass -File schedule-1week.ps1" },
                 { n: "3", title: "One-time unlock (recommended)", body: "Paste in an Admin PowerShell window, press Y → Enter. After this, all .ps1 files run normally.", code: "Set-ExecutionPolicy RemoteSigned -Scope CurrentUser" },
               ].map(s => (
                 <li key={s.n} className="flex gap-3">
                   <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{s.n}</span>
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-800 mb-1">{s.title}</p>
-                    {s.body && <p className="text-xs text-gray-500">{s.body}</p>}
-                    {s.code && <code className="block mt-1.5 bg-gray-900 text-green-400 text-[11px] px-3 py-2 rounded-lg font-mono">{s.code}</code>}
+                    {s.body && !s.code && <p className="text-xs text-gray-500">{s.body}</p>}
+                    {s.code && <CodeBlock code={s.code} />}
                     {s.body && s.code && <p className="text-xs text-gray-500 mt-1.5">{s.body}</p>}
                   </div>
                 </li>
@@ -241,16 +266,16 @@ function PsHelp() {
             <p className="text-sm text-gray-500 mb-5">Windows डिफ़ॉल्ट रूप से .ps1 स्क्रिप्ट ब्लॉक करता है। नीचे कोई भी तरीका चुनें:</p>
             <ol className="space-y-4">
               {[
-                { n: "१", title: "राइट-क्लिक → Run with PowerShell", body: '.ps1 फ़ाइल पर राइट-क्लिक करें → "Run with PowerShell" चुनें। अगर execution policy पूछे तो Y दबाएं फिर Enter।' },
+                { n: "१", title: "राइट-क्लिक → Run with PowerShell", body: '.ps1 फ़ाइल पर राइट-क्लिक करें → "Run with PowerShell" चुनें। अगर execution policy पूछे तो Y दबाएं फिर Enter।', code: null },
                 { n: "२", title: "Admin PowerShell में टाइप करें", body: null, code: "PowerShell -ExecutionPolicy Bypass -File schedule-1week.ps1" },
                 { n: "३", title: "एक बार की सेटिंग (सबसे आसान)", body: "Admin PowerShell में यह कमांड चलाएं, Y → Enter दबाएं। इसके बाद सभी .ps1 फ़ाइलें सामान्य रूप से चलेंगी।", code: "Set-ExecutionPolicy RemoteSigned -Scope CurrentUser" },
               ].map(s => (
                 <li key={s.n} className="flex gap-3">
                   <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{s.n}</span>
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-800 mb-1">{s.title}</p>
-                    {s.body && <p className="text-xs text-gray-500">{s.body}</p>}
-                    {s.code && <code className="block mt-1.5 bg-gray-900 text-green-400 text-[11px] px-3 py-2 rounded-lg font-mono">{s.code}</code>}
+                    {s.body && !s.code && <p className="text-xs text-gray-500">{s.body}</p>}
+                    {s.code && <CodeBlock code={s.code} />}
                     {s.body && s.code && <p className="text-xs text-gray-500 mt-1.5">{s.body}</p>}
                   </div>
                 </li>
@@ -451,13 +476,15 @@ function Download() {
           ))}
         </div>
 
-        <div className="mt-8 bg-white/5 border border-white/10 rounded-2xl p-5">
-          <p className="text-gray-400 text-xs font-mono leading-relaxed">
-            <span className="text-gray-600"># PowerShell — run with bypass:</span><br/>
-            PowerShell -ExecutionPolicy Bypass -File schedule-1week.ps1<br/><br/>
-            <span className="text-gray-600"># Check your scheduled task:</span><br/>
-            schtasks /query /tn "MyCleanPC"
-          </p>
+        <div className="mt-8 bg-white/5 border border-white/10 rounded-2xl p-5 space-y-3">
+          <div>
+            <p className="text-gray-600 text-[11px] font-mono mb-1"># PowerShell — run with bypass:</p>
+            <CodeBlock code="PowerShell -ExecutionPolicy Bypass -File schedule-1week.ps1" dark />
+          </div>
+          <div>
+            <p className="text-gray-600 text-[11px] font-mono mb-1"># Check your scheduled task:</p>
+            <CodeBlock code='schtasks /query /tn "MyCleanPC"' dark />
+          </div>
         </div>
       </div>
     </section>
