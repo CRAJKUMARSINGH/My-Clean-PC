@@ -545,6 +545,97 @@ function Safety() {
   );
 }
 
+/* ─── FAQ ─────────────────────────────────────────────────────────── */
+const FAQS = [
+  {
+    q: "Is it safe to run?",
+    a: "Yes. The script only deletes known cache and temp directories — it never touches your personal files, photos, documents, or passwords. Every path it accesses is listed in the 'What It Cleans' section. You can open the .bat or .ps1 file in Notepad to read every line before running.",
+  },
+  {
+    q: "Will it delete my saved passwords?",
+    a: "Never. Login Data files for Chrome, Edge, Brave, Vivaldi, Opera, and Yandex are hardcoded to be skipped in every browser loop. Firefox's key4.db (password store) is also explicitly excluded. These exclusions are in the script itself — not a setting that can be changed by accident.",
+  },
+  {
+    q: "Will it delete files from my Downloads folder?",
+    a: "No. %USERPROFILE%\\Downloads is never read, listed, or touched by the script in any way.",
+  },
+  {
+    q: "How do I check if the scheduler is running?",
+    a: "Open PowerShell or Command Prompt and run: schtasks /query /tn \"MyCleanPC\"\n\nIf the task exists, it will show its next run time and status. If you see 'ERROR: The system cannot find the file specified' — the task isn't registered yet. Run your chosen frequency installer (e.g. schedule-1week.bat) as Administrator to set it up.",
+  },
+  {
+    q: "How do I stop the automatic cleaning?",
+    a: "Download and run uninstall.bat (or uninstall.ps1) as Administrator. It removes the MyCleanPC scheduled task and deletes the installed files from %LOCALAPPDATA%\\MyCleanPC\\. Your PC won't be cleaned automatically again unless you re-run a scheduler installer.",
+  },
+  {
+    q: "Do I need administrator rights?",
+    a: "The one-time cleaner (my-clean-pc.bat) runs fine without admin rights for most paths. However, the scheduler installers (schedule-*.bat / .ps1) and uninstaller require 'Run as Administrator' because they register or remove a Windows Task Scheduler entry.",
+  },
+  {
+    q: "Will this slow down my computer?",
+    a: "No — the opposite. The script removes junk files that waste disk space and can cause Explorer, browsers, and AI IDEs to slow down as caches grow. Cleaning periodically keeps these tools snappy. The script itself runs silently in the background and exits in seconds.",
+  },
+  {
+    q: "Can I see what was deleted?",
+    a: "The .bat version runs silently with no window or log. The .ps1 version prints colour-coded output so you can see each category as it's cleaned. If you want a permanent log, run the .ps1 version from a PowerShell window — you can scroll back through the session history.",
+  },
+];
+
+function FAQ() {
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const toggle = (i: number) => setOpenIdx(prev => (prev === i ? null : i));
+  return (
+    <section id="faq" className="py-28 px-6 bg-slate-50 dark:bg-gray-950 transition-colors">
+      <div className="max-w-3xl mx-auto">
+        <div className="text-center mb-16">
+          <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-3">Common questions</p>
+          <h2 className="text-4xl font-extrabold text-gray-950 dark:text-white tracking-tight mb-4">FAQ</h2>
+          <p className="text-lg text-gray-400 dark:text-gray-500 max-w-md mx-auto">Everything you might want to know before running the scripts.</p>
+        </div>
+
+        <div className="space-y-2">
+          {FAQS.map((faq, i) => (
+            <div key={i} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden transition-all">
+              <button
+                onClick={() => toggle(i)}
+                className="w-full flex items-center justify-between gap-4 px-6 py-5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
+              >
+                <span className="font-semibold text-gray-900 dark:text-white text-sm leading-snug">{faq.q}</span>
+                <span className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center border transition-all ${openIdx === i ? "border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rotate-45" : "border-gray-200 dark:border-gray-700 text-gray-400"}`}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </span>
+              </button>
+
+              {openIdx === i && (
+                <div className="px-6 pb-5 border-t border-gray-50 dark:border-gray-800">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed whitespace-pre-line pt-4">
+                    {faq.a.includes("schtasks") ? (
+                      <>
+                        {faq.a.split("\n\n")[0]}
+                        <CodeBlock code='schtasks /query /tn "MyCleanPC"' />
+                        <span className="block mt-3">{faq.a.split("\n\n").slice(1).join("\n\n")}</span>
+                      </>
+                    ) : faq.a}
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-10 text-center">
+          <p className="text-sm text-gray-400 dark:text-gray-500">Still have a question?</p>
+          <a href="https://github.com/CRAJKUMARSINGH/My-Clean-PC/issues" target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mt-1.5 transition-colors">
+            Open an issue on GitHub
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ─── Download ────────────────────────────────────────────────────── */
 const ALL_FILES = [
   { icon: "🦇", label: "Cleaner",          sub: "Run once silently",          file: "my-clean-pc.bat",     ext: ".bat", theme: "blue"  },
@@ -663,6 +754,7 @@ export default function App() {
         <AutoClean />
         <WhatItCleans />
         <Safety />
+        <FAQ />
         <Download />
         <Footer />
         <FloatingDownload />
