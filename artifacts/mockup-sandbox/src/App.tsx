@@ -280,6 +280,81 @@ function AutoClean() {
             <p className="text-amber-700 text-xs">The installer copies <code className="bg-amber-100 px-1 rounded">my-clean-pc.bat</code> to <code className="bg-amber-100 px-1 rounded">%LOCALAPPDATA%\MyCleanPC\</code> automatically. You only need to run it once.</p>
           </div>
         </div>
+
+        <div className="mt-4 bg-slate-900 rounded-2xl p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <span className="text-lg">❓</span>
+            <h3 className="text-white font-bold">How to run .ps1 files &nbsp;·&nbsp; <span className="text-blue-300">.ps1 फ़ाइल कैसे चलाएं</span></h3>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <p className="text-blue-300 text-xs font-semibold uppercase tracking-wide mb-3">English</p>
+              <p className="text-gray-300 text-sm mb-3">Windows blocks PowerShell scripts by default. Use one of these methods:</p>
+              <ol className="space-y-3">
+                <li className="flex gap-3">
+                  <span className="w-5 h-5 bg-blue-600 text-white text-xs font-bold rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                  <div>
+                    <p className="text-white text-sm font-semibold">Right-click → Run with PowerShell</p>
+                    <p className="text-gray-400 text-xs">Right-click the .ps1 file and choose <em>"Run with PowerShell"</em>. If prompted about execution policy, press <strong className="text-white">Y</strong> then Enter.</p>
+                  </div>
+                </li>
+                <li className="flex gap-3">
+                  <span className="w-5 h-5 bg-blue-600 text-white text-xs font-bold rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                  <div>
+                    <p className="text-white text-sm font-semibold">Open PowerShell as Admin and run:</p>
+                    <code className="block bg-black/50 text-green-400 text-xs px-3 py-2 rounded-lg mt-1 font-mono">
+                      PowerShell -ExecutionPolicy Bypass -File schedule-1week.ps1
+                    </code>
+                  </div>
+                </li>
+                <li className="flex gap-3">
+                  <span className="w-5 h-5 bg-blue-600 text-white text-xs font-bold rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                  <div>
+                    <p className="text-white text-sm font-semibold">One-time policy unlock (Admin PowerShell):</p>
+                    <code className="block bg-black/50 text-green-400 text-xs px-3 py-2 rounded-lg mt-1 font-mono">
+                      Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+                    </code>
+                    <p className="text-gray-400 text-xs mt-1">Press Y → Enter. After this, all .ps1 files run normally.</p>
+                  </div>
+                </li>
+              </ol>
+            </div>
+
+            <div>
+              <p className="text-blue-300 text-xs font-semibold uppercase tracking-wide mb-3">हिंदी — Hindi</p>
+              <p className="text-gray-300 text-sm mb-3">Windows डिफ़ॉल्ट रूप से PowerShell स्क्रिप्ट को ब्लॉक करता है। इनमें से कोई एक तरीका अपनाएं:</p>
+              <ol className="space-y-3">
+                <li className="flex gap-3">
+                  <span className="w-5 h-5 bg-blue-600 text-white text-xs font-bold rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">१</span>
+                  <div>
+                    <p className="text-white text-sm font-semibold">राइट-क्लिक → Run with PowerShell</p>
+                    <p className="text-gray-400 text-xs">.ps1 फ़ाइल पर राइट-क्लिक करें और <em>"Run with PowerShell"</em> चुनें। अगर execution policy के बारे में पूछे तो <strong className="text-white">Y</strong> दबाएं फिर Enter।</p>
+                  </div>
+                </li>
+                <li className="flex gap-3">
+                  <span className="w-5 h-5 bg-blue-600 text-white text-xs font-bold rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">२</span>
+                  <div>
+                    <p className="text-white text-sm font-semibold">PowerShell को Admin में खोलें और टाइप करें:</p>
+                    <code className="block bg-black/50 text-green-400 text-xs px-3 py-2 rounded-lg mt-1 font-mono">
+                      PowerShell -ExecutionPolicy Bypass -File schedule-1week.ps1
+                    </code>
+                  </div>
+                </li>
+                <li className="flex gap-3">
+                  <span className="w-5 h-5 bg-blue-600 text-white text-xs font-bold rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">३</span>
+                  <div>
+                    <p className="text-white text-sm font-semibold">एक बार की सेटिंग (Admin PowerShell में):</p>
+                    <code className="block bg-black/50 text-green-400 text-xs px-3 py-2 rounded-lg mt-1 font-mono">
+                      Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+                    </code>
+                    <p className="text-gray-400 text-xs mt-1">Y → Enter दबाएं। इसके बाद सभी .ps1 फ़ाइलें सामान्य रूप से चलेंगी।</p>
+                  </div>
+                </li>
+              </ol>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
