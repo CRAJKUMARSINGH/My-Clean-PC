@@ -357,11 +357,11 @@ function Download() {
       <div className="max-w-3xl mx-auto text-center">
         <h2 className="text-4xl font-extrabold text-white mb-4">Download All Files</h2>
         <p className="text-blue-100 text-lg mb-10">Download both files, keep them in the same folder, and run the installer once.</p>
-        <div className="grid sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/20">
             <div className="text-3xl mb-3">🦇</div>
             <h3 className="text-white font-bold mb-1">Cleaner</h3>
-            <p className="text-blue-200 text-xs mb-4">The main cleaning script</p>
+            <p className="text-blue-200 text-xs mb-4">Run once, clean all 9 categories silently</p>
             <a href={`${BASE}/my-clean-pc.bat`} download="my-clean-pc.bat" className="inline-flex items-center gap-1.5 bg-white text-blue-700 font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-blue-50 transition-colors w-full justify-center">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               my-clean-pc.bat
@@ -370,7 +370,7 @@ function Download() {
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/20">
             <div className="text-3xl mb-3">⚙️</div>
             <h3 className="text-white font-bold mb-1">PowerShell</h3>
-            <p className="text-blue-200 text-xs mb-4">Same cleaner, coloured output</p>
+            <p className="text-blue-200 text-xs mb-4">Same cleaner with colour-coded output</p>
             <a href={`${BASE}/my-clean-pc.ps1`} download="my-clean-pc.ps1" className="inline-flex items-center gap-1.5 bg-white text-blue-700 font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-blue-50 transition-colors w-full justify-center">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               my-clean-pc.ps1
@@ -379,10 +379,18 @@ function Download() {
           <div className="bg-white rounded-2xl p-5 border-2 border-white shadow-xl">
             <div className="text-3xl mb-3">📅</div>
             <h3 className="text-blue-700 font-bold mb-1">Auto-Scheduler</h3>
-            <p className="text-blue-500 text-xs mb-4">30 min · 1 week · 15 days</p>
-            <a href={`${BASE}/install-scheduler.bat`} download="install-scheduler.bat" className="inline-flex items-center gap-1.5 bg-blue-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-blue-700 transition-colors w-full justify-center">
+            <p className="text-blue-500 text-xs mb-4">30 min · 1 week · 15 days (silent)</p>
+            <a href="#auto-clean" className="inline-flex items-center gap-1.5 bg-blue-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-blue-700 transition-colors w-full justify-center">
+              ↑ See above
+            </a>
+          </div>
+          <div className="bg-red-900/30 backdrop-blur-sm rounded-2xl p-5 border border-red-400/30">
+            <div className="text-3xl mb-3">🗑️</div>
+            <h3 className="text-white font-bold mb-1">Uninstall</h3>
+            <p className="text-red-200 text-xs mb-4">Removes the scheduled task and all installed files</p>
+            <a href={`${BASE}/uninstall.bat`} download="uninstall.bat" className="inline-flex items-center gap-1.5 bg-red-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-red-600 transition-colors w-full justify-center">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              install-scheduler.bat
+              uninstall.bat
             </a>
           </div>
         </div>
@@ -390,8 +398,8 @@ function Download() {
           <p className="text-blue-200 text-xs font-mono leading-relaxed">
             <span className="text-blue-300"># To run PowerShell version:</span><br/>
             PowerShell -ExecutionPolicy Bypass -File my-clean-pc.ps1<br/><br/>
-            <span className="text-blue-300"># To remove the scheduled task:</span><br/>
-            schtasks /delete /tn "MyCleanPC" /f
+            <span className="text-blue-300"># To check the scheduled task:</span><br/>
+            schtasks /query /tn "MyCleanPC"
           </p>
         </div>
       </div>
