@@ -488,17 +488,57 @@ function Footer() {
   );
 }
 
+/* ─── Floating Download Button ────────────────────────────────────── */
+function FloatingDownload() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const hero = document.querySelector("#hero-end");
+    if (!hero) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setVisible(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(hero);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div className={`fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 transition-all duration-300 ${visible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-4 pointer-events-none"}`}>
+      <div className="flex gap-2">
+        <a
+          href={DL("my-clean-pc.ps1")}
+          download="my-clean-pc.ps1"
+          className="flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-lg transition-colors"
+        >
+          <DownloadIcon size={12} /> .ps1
+        </a>
+        <a
+          href={DL("my-clean-pc.bat")}
+          download="my-clean-pc.bat"
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-full shadow-xl shadow-blue-500/30 transition-colors"
+        >
+          <DownloadIcon size={13} /> Download .bat
+        </a>
+      </div>
+      <p className="text-[10px] text-gray-400 text-right pr-1">Free · No install needed</p>
+    </div>
+  );
+}
+
 /* ─── App ─────────────────────────────────────────────────────────── */
 export default function App() {
   return (
     <div className="font-sans antialiased">
       <Navbar />
       <Hero />
+      <div id="hero-end" aria-hidden="true" />
       <AutoClean />
       <WhatItCleans />
       <Safety />
       <Download />
       <Footer />
+      <FloatingDownload />
     </div>
   );
 }
