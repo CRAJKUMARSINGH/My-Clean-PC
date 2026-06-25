@@ -52,6 +52,123 @@ function CodeBlock({ code, dark: forceDark = false }: { code: string; dark?: boo
   );
 }
 
+/* ─── Changelog ───────────────────────────────────────────────────── */
+const CHANGELOG = [
+  {
+    version: "v1.4",
+    date: "Jun 2025",
+    badge: "New",
+    badgeColor: "bg-blue-500",
+    items: [
+      "Dark / light mode toggle",
+      "Share button — copy link or native share sheet",
+      "Copy buttons on all PowerShell commands",
+      "Floating download FAB when you scroll past hero",
+    ],
+  },
+  {
+    version: "v1.3",
+    date: "Jun 2025",
+    badge: "New",
+    badgeColor: "bg-blue-500",
+    items: [
+      "PowerShell (.ps1) versions for all schedulers & uninstaller",
+      "Bilingual PS1 help (English + Hindi) in accordion",
+      "Elegant redesign — white SaaS layout with spacious sections",
+    ],
+  },
+  {
+    version: "v1.2",
+    date: "Jun 2025",
+    badge: "",
+    badgeColor: "",
+    items: [
+      "Auto-scheduler: 30-min, weekly, and 15-day installers",
+      "Silent uninstaller removes task + all installed files",
+      "9-category transparent listing with exact paths",
+    ],
+  },
+  {
+    version: "v1.0",
+    date: "Jun 2025",
+    badge: "",
+    badgeColor: "",
+    items: [
+      "Initial release: my-clean-pc.bat cleans 9 junk categories",
+      "Covers AI IDEs (9 apps), 8 browsers, Temp, Prefetch, DNS, and more",
+      "Hardcoded exclusions: passwords, Downloads folder always skipped",
+    ],
+  },
+];
+
+function WhatsNew() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    if (open) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-full border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+      >
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"/>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"/>
+        </span>
+        What's New
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-12 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl shadow-black/10 dark:shadow-black/40 overflow-hidden z-50">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+            <div>
+              <p className="font-bold text-gray-900 dark:text-white text-sm">What's New</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">My Clean PC changelog</p>
+            </div>
+            <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+
+          <div className="overflow-y-auto max-h-80 divide-y divide-gray-100 dark:divide-gray-800">
+            {CHANGELOG.map(entry => (
+              <div key={entry.version} className="px-5 py-4">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className="font-bold text-gray-900 dark:text-white text-sm">{entry.version}</span>
+                  {entry.badge && (
+                    <span className={`text-[10px] font-bold text-white px-1.5 py-0.5 rounded-full ${entry.badgeColor}`}>{entry.badge}</span>
+                  )}
+                  <span className="text-gray-400 dark:text-gray-600 text-xs ml-auto">{entry.date}</span>
+                </div>
+                <ul className="space-y-1.5">
+                  {entry.items.map(item => (
+                    <li key={item} className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="text-blue-400 mt-0.5 flex-shrink-0">›</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          <div className="px-5 py-3 bg-gray-50 dark:bg-gray-800/60 border-t border-gray-100 dark:border-gray-800">
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center">All updates are free forever ❤️</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Navbar ──────────────────────────────────────────────────────── */
 function ShareButton() {
   const [state, setState] = useState<"idle" | "copied" | "error">("idle");
@@ -112,6 +229,7 @@ function Navbar() {
           <a href="#download" className="hover:text-gray-900 dark:hover:text-white transition-colors">Download</a>
         </nav>
         <div className="flex items-center gap-2">
+          <WhatsNew />
           <ShareButton />
           <button onClick={toggle}
             className="w-9 h-9 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
