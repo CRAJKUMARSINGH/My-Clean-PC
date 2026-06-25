@@ -161,7 +161,38 @@ const frequencies: { id: Freq; label: string; sublabel: string; icon: string; de
 ];
 
 function AutoClean() {
-  const [selected, setSelected] = useState<Freq>("1week");
+  const schedules = [
+    {
+      id: "30min",
+      icon: "⚡",
+      label: "Every 30 Minutes",
+      sublabel: "For heavy AI IDE users",
+      detail: "Clears accumulating caches constantly. Best if you use Cursor, Windsurf or similar tools all day.",
+      file: "schedule-30min.bat",
+      color: "border-violet-200 hover:border-violet-400 hover:bg-violet-50",
+      badge: "",
+    },
+    {
+      id: "1week",
+      icon: "📅",
+      label: "Every Week",
+      sublabel: "Monday at 9:00 AM",
+      detail: "Runs every Monday morning. Keeps your PC consistently clean without being intrusive.",
+      file: "schedule-1week.bat",
+      color: "border-blue-300 bg-blue-50 hover:border-blue-500",
+      badge: "Recommended",
+    },
+    {
+      id: "15days",
+      icon: "🌙",
+      label: "Every 15 Days",
+      sublabel: "At 9:00 AM",
+      detail: "Gentle clean every two weeks. Good for light use or if your disk space isn't a concern.",
+      file: "schedule-15days.bat",
+      color: "border-gray-200 hover:border-gray-400 hover:bg-gray-50",
+      badge: "",
+    },
+  ];
 
   return (
     <section id="auto-clean" className="py-24 px-6 bg-white">
@@ -169,107 +200,71 @@ function AutoClean() {
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
             <span className="w-1.5 h-1.5 rounded-full bg-green-500"/>
-            New — Automatic Scheduling
+            Fully Automatic — No Prompts
           </div>
           <h2 className="text-4xl font-extrabold text-gray-900 mb-4">Set &amp; Forget Auto-Clean</h2>
           <p className="text-gray-500 text-lg max-w-xl mx-auto">
-            Pick how often you want your PC cleaned. One double-click installs a Windows Task Scheduler job — your PC cleans itself from then on.
+            Pick your frequency below. Download the cleaner + the matching installer, put them in the same folder, right-click the installer → <strong>Run as administrator</strong>. Done — your PC cleans itself forever.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4 mb-8">
-          {frequencies.map(f => (
-            <button
-              key={f.id}
-              onClick={() => setSelected(f.id)}
-              className={`text-left rounded-2xl border-2 p-5 transition-all ${
-                selected === f.id
-                  ? "border-blue-500 bg-blue-50 shadow-md shadow-blue-100"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-            >
-              <div className="text-3xl mb-3">{f.icon}</div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-bold text-gray-900">{f.label}</span>
-                {f.id === "1week" && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">Recommended</span>}
-              </div>
-              <p className="text-xs text-gray-500 leading-relaxed">{f.detail}</p>
-              {selected === f.id && (
-                <div className="mt-3 flex items-center gap-1.5 text-blue-600 text-xs font-semibold">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  Selected
-                </div>
-              )}
-            </button>
-          ))}
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex gap-3 mb-8">
+          <span className="text-blue-500 text-xl">ℹ️</span>
+          <div>
+            <p className="text-blue-800 text-sm font-semibold mb-0.5">Zero prompts, zero interaction</p>
+            <p className="text-blue-700 text-sm">Each installer runs completely silently — it copies the cleaner, registers the scheduled task, and exits. No menus, no keypresses, no confirmation needed.</p>
+          </div>
         </div>
 
-        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6">
-          <h3 className="font-bold text-gray-900 mb-4">How to set up automatic cleaning:</h3>
-          <ol className="space-y-3 mb-6">
-            {[
-              { step: "1", text: "Download both files below and put them in the same folder (e.g. your Desktop)" },
-              { step: "2", text: `Download the scheduler installer (install-scheduler.bat)` },
-              { step: "3", text: "Right-click install-scheduler.bat → Run as administrator" },
-              { step: "4", text: `Choose your frequency in the menu — your PC will now clean itself automatically` },
-            ].map(s => (
-              <li key={s.step} className="flex gap-3">
-                <span className="w-6 h-6 bg-blue-600 text-white text-xs font-bold rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">{s.step}</span>
-                <span className="text-gray-600 text-sm">{s.text}</span>
-              </li>
-            ))}
-          </ol>
-
-          <div className="grid sm:grid-cols-2 gap-3">
-            <a
-              href={`${BASE}/my-clean-pc.bat`}
-              download="my-clean-pc.bat"
-              className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-300 hover:bg-blue-50 transition-all group"
-            >
-              <div className="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Step 1: Cleaner</p>
-                <p className="text-xs text-gray-500">my-clean-pc.bat</p>
-              </div>
-            </a>
-            <a
-              href={`${BASE}/install-scheduler.bat`}
-              download="install-scheduler.bat"
-              className="flex items-center gap-3 bg-blue-600 rounded-xl px-4 py-3 hover:bg-blue-700 transition-colors group"
-            >
-              <div className="w-9 h-9 bg-blue-500 rounded-lg flex items-center justify-center">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-white">Step 2: Scheduler</p>
-                <p className="text-xs text-blue-200">install-scheduler.bat</p>
-              </div>
-            </a>
-          </div>
-
-          <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
-            <span className="text-amber-500 text-lg">⚠️</span>
-            <div>
-              <p className="text-amber-800 text-sm font-semibold mb-0.5">Keep both files in the same folder</p>
-              <p className="text-amber-700 text-xs">The installer copies my-clean-pc.bat to %LOCALAPPDATA%\MyCleanPC\ automatically. You only need to run the installer once.</p>
+        <div className="mb-6">
+          <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide mb-4">Step 1 — Download the cleaner</h3>
+          <a
+            href={`${BASE}/my-clean-pc.bat`}
+            download="my-clean-pc.bat"
+            className="flex items-center gap-4 bg-white border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 rounded-2xl px-5 py-4 transition-all group"
+          >
+            <div className="w-11 h-11 bg-gray-100 group-hover:bg-blue-100 rounded-xl flex items-center justify-center text-xl transition-colors">🦇</div>
+            <div className="flex-1">
+              <p className="font-bold text-gray-900">my-clean-pc.bat</p>
+              <p className="text-xs text-gray-500">The main cleaning script — cleans all 9 categories silently</p>
             </div>
+            <div className="flex items-center gap-1.5 text-blue-600 text-sm font-semibold">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download
+            </div>
+          </a>
+        </div>
+
+        <div>
+          <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide mb-4">Step 2 — Pick your frequency &amp; download its silent installer</h3>
+          <div className="grid md:grid-cols-3 gap-4">
+            {schedules.map(s => (
+              <div key={s.id} className={`rounded-2xl border-2 p-5 transition-all ${s.color}`}>
+                <div className="flex items-start justify-between mb-3">
+                  <span className="text-3xl">{s.icon}</span>
+                  {s.badge && <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-semibold">{s.badge}</span>}
+                </div>
+                <h4 className="font-bold text-gray-900 mb-0.5">{s.label}</h4>
+                <p className="text-xs text-gray-400 mb-2">{s.sublabel}</p>
+                <p className="text-xs text-gray-500 leading-relaxed mb-4">{s.detail}</p>
+                <a
+                  href={`${BASE}/${s.file}`}
+                  download={s.file}
+                  className="flex items-center gap-2 bg-blue-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-blue-700 transition-colors justify-center"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  {s.file}
+                </a>
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="mt-6 grid sm:grid-cols-3 gap-3 text-center">
-          <div className="bg-slate-50 rounded-xl p-4">
-            <p className="text-2xl font-extrabold text-gray-900">30 min</p>
-            <p className="text-xs text-gray-500 mt-1">Fastest schedule — clears cache constantly</p>
-          </div>
-          <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-            <p className="text-2xl font-extrabold text-blue-700">1 week</p>
-            <p className="text-xs text-blue-600 mt-1">Recommended for most users</p>
-          </div>
-          <div className="bg-slate-50 rounded-xl p-4">
-            <p className="text-2xl font-extrabold text-gray-900">15 days</p>
-            <p className="text-xs text-gray-500 mt-1">Gentle schedule for light use</p>
+        <div className="mt-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3">
+          <span className="text-amber-500 text-lg">⚠️</span>
+          <div>
+            <p className="text-amber-800 text-sm font-semibold mb-0.5">Keep both files in the same folder before running</p>
+            <p className="text-amber-700 text-xs">The installer copies <code className="bg-amber-100 px-1 rounded">my-clean-pc.bat</code> to <code className="bg-amber-100 px-1 rounded">%LOCALAPPDATA%\MyCleanPC\</code> automatically. You only need to run it once.</p>
           </div>
         </div>
       </div>

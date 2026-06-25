@@ -319,4 +319,3 @@ echo   All done!
 echo   Passwords (Login Data) were NOT touched.
 echo   Downloads folder was NOT touched.
 echo ============================================
-pause

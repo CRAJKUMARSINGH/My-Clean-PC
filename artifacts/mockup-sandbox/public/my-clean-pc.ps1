@@ -222,4 +222,3 @@ Write-Host "  All done!"                                 -ForegroundColor Green
 Write-Host "  Passwords (Login Data) were NOT touched."  -ForegroundColor Green
 Write-Host "  Downloads folder was NOT touched."         -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Cyan
-Read-Host "Press Enter to exit"
