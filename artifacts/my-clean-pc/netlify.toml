@@ -1,8 +1,8 @@
 [build]
-  base      = "artifacts/my-clean-pc"
-  command   = "pnpm install && pnpm run build"
-  publish   = "dist/public"
-  functions = "netlify/functions"
+  base      = "."
+  command   = "pnpm install && pnpm --filter @workspace/my-clean-pc run build"
+  publish   = "artifacts/my-clean-pc/dist"
+  functions = "artifacts/my-clean-pc/netlify/functions"
 
 [build.environment]
   PORT         = "19705"
