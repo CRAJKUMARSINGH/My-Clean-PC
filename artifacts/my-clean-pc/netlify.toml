@@ -1,0 +1,24 @@
+[build]
+  base      = "artifacts/my-clean-pc"
+  command   = "pnpm install && pnpm run build"
+  publish   = "dist/public"
+  functions = "netlify/functions"
+
+[build.environment]
+  PORT         = "19705"
+  BASE_PATH    = "/"
+  NODE_VERSION = "20"
+
+# Required env vars (set in Netlify → Site configuration → Environment variables):
+#   RESEND_API_KEY  — get a free key at resend.com
+#   APP_URL         — your Netlify site URL, e.g. https://my-clean-pc.netlify.app
+
+[[redirects]]
+  from   = "/.netlify/functions/*"
+  to     = "/.netlify/functions/:splat"
+  status = 200
+
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200

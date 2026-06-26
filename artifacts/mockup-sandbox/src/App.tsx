@@ -341,6 +341,21 @@ function Hero() {
               Set up auto-clean →
             </a>
           </div>
+
+          {/* Guarantee strip */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-2 pl-1">
+            {[
+              { icon: "📄", label: "Open in Notepad — read every line" },
+              { icon: "🚫", label: "No executables" },
+              { icon: "🌐", label: "No network calls" },
+              { icon: "🔑", label: "Passwords never touched" },
+            ].map(({ icon, label }) => (
+              <span key={label} className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+                <span>{icon}</span>
+                <span>{label}</span>
+              </span>
+            ))}
+          </div>
         </div>
         <div className="flex justify-center md:justify-end"><ScanDemo /></div>
       </div>

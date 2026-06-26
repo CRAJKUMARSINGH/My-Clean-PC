@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "pCdg4Q6T6iZnibgfwHFKT"
+uri = "file://my-clean-pc-netlify.zip"
+type = "unspecified"
+title = "My Clean PC — Netlify Deploy (with Email Reminders)"
