@@ -126,19 +126,29 @@ Write-Log "-- STEP 5: Recycle Bin and Update Cache --"
 try { Clear-RecycleBin -Force -ErrorAction SilentlyContinue; Write-Log "  [Recycle Bin] emptied." }
 catch { Write-Log "  [Recycle Bin] could not empty: $($_.Exception.Message)" }
 
-# Windows Update download cache (stop/start wuauserv so files aren't locked)
-Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
-$wuDownload = "C:\Windows\SoftwareDistribution\Download"
-if (Test-Path $wuDownload) {
-    Get-ChildItem $wuDownload -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Log "  [Windows Update Download Cache] cleared."
+# Windows Update download cache (best-effort, skip if service won't stop quickly)
+$wuStopped = $false
+try {
+    $svc = Get-Service -Name wuauserv -ErrorAction Stop
+    if ($svc.Status -eq 'Running') {
+        Stop-Service -Name wuauserv -Force -ErrorAction Stop
+        $wuStopped = $true
+    }
+} catch { Write-Log "  [wuauserv] could not stop, skipping Update cache." }
+
+if ($wuStopped -or (Get-Service wuauserv -ErrorAction SilentlyContinue).Status -ne 'Running') {
+    $wuDownload = "C:\Windows\SoftwareDistribution\Download"
+    if (Test-Path $wuDownload) {
+        Get-ChildItem $wuDownload -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Log "  [Windows Update Download Cache] cleared."
+    }
+    $wuLogs = "C:\Windows\SoftwareDistribution\DataStore\Logs"
+    if (Test-Path $wuLogs) {
+        Get-ChildItem $wuLogs -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Log "  [Windows Update Logs] cleared."
+    }
+    if ($wuStopped) { Start-Service -Name wuauserv -ErrorAction SilentlyContinue }
 }
-$wuLogs = "C:\Windows\SoftwareDistribution\DataStore\Logs"
-if (Test-Path $wuLogs) {
-    Get-ChildItem $wuLogs -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Log "  [Windows Update Logs] cleared."
-}
-Start-Service -Name wuauserv -ErrorAction SilentlyContinue
 
 # Thumbnail and icon cache
 $explorerCache = [System.Environment]::ExpandEnvironmentVariables("%LOCALAPPDATA%\Microsoft\Windows\Explorer")
