@@ -1,3 +1,10 @@
+# My Clean PC - Scheduled Cleanup Task (PowerShell)
+# Mirrors the 6-step cleaning scope defined in the app (App.tsx / WIN_PS1)
+# Run as SYSTEM via Task Scheduler - no interactive prompts
+# Downloads folder is intentionally NEVER touched.
+# Passwords (Login Data, key4.db) are intentionally NEVER touched.
+
+$ErrorActionPreference = "SilentlyContinue"
 $logFile = "C:\Scripts\cleanup_log.txt"
 
 function Write-Log {
@@ -5,88 +12,160 @@ function Write-Log {
     Add-Content -Path $logFile -Value "[$( Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $Message" -ErrorAction SilentlyContinue
 }
 
-function Remove-Items {
-    param([string]$Path, [string]$Label)
-    if (Test-Path $Path) {
-        Get-ChildItem $Path -Recurse -Force -ErrorAction SilentlyContinue |
-            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-        Write-Log "$Label cleaned."
-    } else {
-        Write-Log "$Label path not found, skipped."
+function Remove-Paths {
+    param([string]$Label, [string[]]$Paths)
+    $any = $false
+    foreach ($p in $Paths) {
+        $exp = [System.Environment]::ExpandEnvironmentVariables($p)
+        if (Test-Path $exp) {
+            Remove-Item -Recurse -Force $exp -ErrorAction SilentlyContinue
+            $any = $true
+        }
     }
+    if ($any) { Write-Log "  [$Label] cleared." }
+    else      { Write-Log "  [$Label] not found / already clean." }
 }
 
-function Run-Cleanup {
-    Write-Log "===== Cleanup Started ====="
+function Clear-ChromiumCache {
+    param([string]$Label, [string]$UserDataPath)
+    $base = [System.Environment]::ExpandEnvironmentVariables($UserDataPath)
+    if (-not (Test-Path $base)) { Write-Log "  [$Label] not installed, skipped."; return }
 
-    # ── User Temp ─────────────────────────────────────────────────────────────
-    Remove-Items "$env:TEMP" "User Temp (%TEMP%)"
+    $dirs  = @("Cache","Code Cache","GPUCache","Media Cache","blob_storage",
+               "Service Worker\CacheStorage","Service Worker\ScriptCache",
+               "Local Storage","IndexedDB","Session Storage","Application Cache",
+               "Network","Extension State","Storage")
+    $files = @("Cookies","Cookies-journal","History","History-journal",
+               "Visited Links","Top Sites","Top Sites-journal",
+               "Shortcuts","Shortcuts-journal","Network Action Predictor",
+               "Favicons","Favicons-journal","Current Session","Last Session",
+               "Current Tabs","Last Tabs","Web Data","Web Data-journal",
+               "Extension Cookies","QuotaManager")
 
-    # ── System Temp ───────────────────────────────────────────────────────────
-    Remove-Items "C:\Windows\Temp" "Windows Temp"
-
-    # ── Windows Prefetch ──────────────────────────────────────────────────────
-    Remove-Items "C:\Windows\Prefetch" "Prefetch"
-
-    # ── Windows Update Cache ──────────────────────────────────────────────────
-    Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
-    Remove-Items "C:\Windows\SoftwareDistribution\Download" "Windows Update Cache"
-    Start-Service -Name wuauserv -ErrorAction SilentlyContinue
-
-    # ── Windows Error Reporting ───────────────────────────────────────────────
-    Remove-Items "C:\ProgramData\Microsoft\Windows\WER\ReportQueue" "WER ReportQueue"
-    Remove-Items "C:\ProgramData\Microsoft\Windows\WER\ReportArchive" "WER ReportArchive"
-
-    # ── Recent Items ──────────────────────────────────────────────────────────
-    Remove-Items "$env:APPDATA\Microsoft\Windows\Recent" "Recent Items"
-
-    # ── Thumbnail Cache ───────────────────────────────────────────────────────
-    Remove-Items "$env:LOCALAPPDATA\Microsoft\Windows\Explorer" "Thumbnail Cache"
-
-    # ── Google Chrome Cache ───────────────────────────────────────────────────
-    Remove-Items "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache" "Chrome Cache"
-    Remove-Items "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Code Cache" "Chrome Code Cache"
-
-    # ── Microsoft Edge Cache ──────────────────────────────────────────────────
-    Remove-Items "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache" "Edge Cache"
-    Remove-Items "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Code Cache" "Edge Code Cache"
-
-    # ── Firefox Cache ─────────────────────────────────────────────────────────
-    $ffProfiles = Get-ChildItem "$env:APPDATA\Mozilla\Firefox\Profiles" -Directory -ErrorAction SilentlyContinue
-    foreach ($p in $ffProfiles) {
-        Remove-Items "$($p.FullName)\cache2" "Firefox Cache ($($p.Name))"
+    Get-ChildItem $base -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+        $p = $_.FullName
+        foreach ($d in $dirs)  { if (Test-Path "$p\$d") { Remove-Item -Recurse -Force "$p\$d" -ErrorAction SilentlyContinue } }
+        foreach ($f in $files) { if (Test-Path "$p\$f") { Remove-Item -Force "$p\$f" -ErrorAction SilentlyContinue } }
+        # Login Data intentionally SKIPPED - passwords are SAFE
     }
-
-    # ── Recycle Bin ───────────────────────────────────────────────────────────
-    try {
-        Clear-RecycleBin -Force -ErrorAction SilentlyContinue
-        Write-Log "Recycle Bin emptied."
-    } catch {
-        Write-Log "Recycle Bin: could not empty ($($_.Exception.Message))."
-    }
-
-    # ── DNS Cache ─────────────────────────────────────────────────────────────
-    try {
-        Clear-DnsClientCache -ErrorAction SilentlyContinue
-        Write-Log "DNS Cache flushed."
-    } catch {
-        Write-Log "DNS Cache flush failed ($($_.Exception.Message))."
-    }
-
-    # ── Windows Event Logs ────────────────────────────────────────────────────
-    try {
-        Get-EventLog -LogName * -ErrorAction SilentlyContinue |
-            ForEach-Object { Clear-EventLog -LogName $_.Log -ErrorAction SilentlyContinue }
-        Write-Log "Event Logs cleared."
-    } catch {
-        Write-Log "Event Logs: could not clear ($($_.Exception.Message))."
-    }
-
-    # ── Disk Cleanup (sageset:1) ───────────────────────────────────────────────
-    Start-Process "cleanmgr.exe" -ArgumentList "/sagerun:1" -Wait -NoNewWindow
-    Write-Log "Disk Cleanup (cleanmgr) done."
-
-    Write-Log "===== Cleanup Finished ====="
+    Write-Log "  [$Label] cleared. (Passwords NOT touched)"
 }
 
-Run-Cleanup
+# ════════════════════════════════════════════════════════════════════
+Write-Log "===== Cleanup Started ====="
+# ════════════════════════════════════════════════════════════════════
+
+Write-Log "-- STEP 1: AI App Caches --"
+Remove-Paths "Antigravity"  @("%APPDATA%\Antigravity", "%LOCALAPPDATA%\Antigravity")
+Remove-Paths "Cursor"       @("%APPDATA%\Cursor\Cache", "%APPDATA%\Cursor\CachedData", "%APPDATA%\Cursor\logs", "%LOCALAPPDATA%\cursor-updater")
+Remove-Paths "Kiro"         @("%APPDATA%\kiro\Cache", "%APPDATA%\kiro\CachedData", "%LOCALAPPDATA%\kiro")
+Remove-Paths "Trae AI"      @("%APPDATA%\Trae", "%APPDATA%\trae-ai", "%LOCALAPPDATA%\Trae")
+Remove-Paths "Windsurf"     @("%APPDATA%\Windsurf\Cache", "%APPDATA%\Windsurf\CachedData", "%APPDATA%\Windsurf\logs", "%LOCALAPPDATA%\Windsurf")
+Remove-Paths "Warp"         @("%APPDATA%\warp", "%LOCALAPPDATA%\Warp\data")
+Remove-Paths "Devin"        @("%APPDATA%\Devin", "%LOCALAPPDATA%\Devin")
+Remove-Paths "Genspark"     @("%APPDATA%\Genspark", "%LOCALAPPDATA%\Genspark")
+
+Write-Log "-- STEP 2: Browser Cache and History (passwords SAFE) --"
+Clear-ChromiumCache "Google Chrome"    "%LOCALAPPDATA%\Google\Chrome\User Data"
+Clear-ChromiumCache "Microsoft Edge"   "%LOCALAPPDATA%\Microsoft\Edge\User Data"
+Clear-ChromiumCache "Brave"            "%LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data"
+Clear-ChromiumCache "Vivaldi"          "%LOCALAPPDATA%\Vivaldi\User Data"
+Clear-ChromiumCache "Opera"            "%APPDATA%\Opera Software\Opera Stable"
+Clear-ChromiumCache "Genspark Browser" "%LOCALAPPDATA%\Genspark\User Data"
+Clear-ChromiumCache "Yandex Browser"   "%LOCALAPPDATA%\Yandex\YandexBrowser\User Data"
+
+# Firefox
+$ffProfiles = [System.Environment]::ExpandEnvironmentVariables("%APPDATA%\Mozilla\Firefox\Profiles")
+if (Test-Path $ffProfiles) {
+    $ffDirs  = @("cache2","startupCache","OfflineCache","thumbnails","storage")
+    $ffFiles = @("cookies.sqlite","cookies.sqlite-shm","cookies.sqlite-wal",
+                 "places.sqlite","places.sqlite-shm","places.sqlite-wal",
+                 "formhistory.sqlite","formhistory.sqlite-shm","formhistory.sqlite-wal",
+                 "downloads.sqlite","favicons.sqlite","favicons.sqlite-shm","favicons.sqlite-wal",
+                 "webappsstore.sqlite","content-prefs.sqlite","permissions.sqlite",
+                 "sessionstore.jsonlz4","sessionCheckpoints.json",
+                 "previous.jsonlz4","recovery.jsonlz4","recovery.baklz4")
+    Get-ChildItem $ffProfiles -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+        $p = $_.FullName
+        foreach ($d in $ffDirs)  { if (Test-Path "$p\$d") { Remove-Item -Recurse -Force "$p\$d" -ErrorAction SilentlyContinue } }
+        foreach ($f in $ffFiles) { if (Test-Path "$p\$f") { Remove-Item -Force "$p\$f" -ErrorAction SilentlyContinue } }
+        # key4.db (passwords) intentionally SKIPPED
+    }
+    Write-Log "  [Firefox] cleared. (Passwords NOT touched)"
+} else {
+    Write-Log "  [Firefox] not installed, skipped."
+}
+
+Write-Log "-- STEP 3: Prefetch and Recent Files --"
+# Prefetch
+Get-ChildItem "C:\Windows\Prefetch" -Filter "*.pf" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+Write-Log "  [Prefetch] cleared."
+
+# Recent Activity (shortcut list only - actual files untouched)
+$recentPath  = [System.Environment]::ExpandEnvironmentVariables("%APPDATA%\Microsoft\Windows\Recent")
+$historyPath = [System.Environment]::ExpandEnvironmentVariables("%LOCALAPPDATA%\Microsoft\Windows\History")
+if (Test-Path $recentPath)  { Get-ChildItem $recentPath  -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue }
+if (Test-Path $historyPath) { Remove-Item -Recurse -Force $historyPath -ErrorAction SilentlyContinue }
+Write-Log "  [Recent Items / History] cleared."
+
+Write-Log "-- STEP 4: Temporary Files --"
+# User Temp
+$userTemp = [System.Environment]::ExpandEnvironmentVariables("%TEMP%")
+if (Test-Path $userTemp) {
+    Get-ChildItem $userTemp -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Log "  [User Temp] cleared."
+}
+# Windows System Temp
+if (Test-Path "C:\Windows\Temp") {
+    Get-ChildItem "C:\Windows\Temp" -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Log "  [Windows Temp] cleared."
+}
+
+Write-Log "-- STEP 5: Recycle Bin and Update Cache --"
+# Recycle Bin
+try { Clear-RecycleBin -Force -ErrorAction SilentlyContinue; Write-Log "  [Recycle Bin] emptied." }
+catch { Write-Log "  [Recycle Bin] could not empty: $($_.Exception.Message)" }
+
+# Windows Update download cache (stop/start wuauserv so files aren't locked)
+Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
+$wuDownload = "C:\Windows\SoftwareDistribution\Download"
+if (Test-Path $wuDownload) {
+    Get-ChildItem $wuDownload -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Log "  [Windows Update Download Cache] cleared."
+}
+$wuLogs = "C:\Windows\SoftwareDistribution\DataStore\Logs"
+if (Test-Path $wuLogs) {
+    Get-ChildItem $wuLogs -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Log "  [Windows Update Logs] cleared."
+}
+Start-Service -Name wuauserv -ErrorAction SilentlyContinue
+
+# Thumbnail and icon cache
+$explorerCache = [System.Environment]::ExpandEnvironmentVariables("%LOCALAPPDATA%\Microsoft\Windows\Explorer")
+if (Test-Path $explorerCache) {
+    Get-ChildItem $explorerCache -Filter "thumbcache_*.db" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+    Get-ChildItem $explorerCache -Filter "iconcache_*.db"  -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+    Write-Log "  [Thumbnail / Icon Cache] cleared."
+}
+
+# IE / WinINet cache
+$inetCache = [System.Environment]::ExpandEnvironmentVariables("%LOCALAPPDATA%\Microsoft\Windows\INetCache")
+if (Test-Path $inetCache) {
+    Remove-Item -Recurse -Force $inetCache -ErrorAction SilentlyContinue
+    Write-Log "  [INetCache] cleared."
+}
+
+Write-Log "-- STEP 6: Event Logs and DNS Cache --"
+# Event Logs
+foreach ($log in @("Application","System","Security","Setup")) {
+    try { wevtutil cl $log 2>&1 | Out-Null; Write-Log "  [Event Log: $log] cleared." }
+    catch { Write-Log "  [Event Log: $log] failed: $($_.Exception.Message)" }
+}
+
+# DNS Cache
+try { Clear-DnsClientCache -ErrorAction Stop; Write-Log "  [DNS Cache] flushed." }
+catch { ipconfig /flushdns | Out-Null; Write-Log "  [DNS Cache] flushed via ipconfig." }
+
+# ════════════════════════════════════════════════════════════════════
+Write-Log "===== Cleanup Finished ====="
+# ════════════════════════════════════════════════════════════════════
