@@ -1,4 +1,4 @@
-# My Clean PC — shared cleaning core (single source of truth)
+# My Clean PC - shared cleaning core (single source of truth)
 # Dot-source from my-clean-pc.ps1, cleanup_task.ps1, etc.
 # Passwords (Login Data, key4.db) and Downloads are NEVER touched.
 
@@ -40,7 +40,7 @@ function Clear-SafeDirectoryContents {
     }
 }
 
-# Delete path if safe; skip protected paths and locked/in-use files — never prompts user
+# Delete path if safe; skip protected paths and locked/in-use files - never prompts user
 function Remove-SafePath {
     param(
         [Parameter(Mandatory)][string]$LiteralPath,
@@ -161,7 +161,7 @@ function Remove-CleanPaths {
     }
 }
 
-# Non-browser apps that also use Chromium "Local State" — never treat as browser
+# Non-browser apps that also use Chromium "Local State" - never treat as browser
 $script:BrowserDiscoveryExcludes = @(
     '\Cursor\', '\discord\', '\Discord\', '\Slack\', '\Teams\', '\Postman\',
     '\GitHub Desktop\', '\Notion\', '\Obsidian\', '\Spotify\', '\Zoom\',
@@ -351,7 +351,7 @@ function Clear-AllInstalledBrowsers {
 
     & $Log "  Found $count browser profile location(s)."
     & $Log "  Cleaning: cache, cookies, history, sessions (like Ctrl+Shift+Delete)."
-    & $Log "  Auto-skip: passwords, locked files — no prompts."
+    & $Log "  Auto-skip: passwords, locked files - no prompts."
 
     foreach ($root in $chromiumRoots) {
         $label = Get-BrowserLabelFromPath $root
@@ -413,7 +413,7 @@ function Invoke-MyCleanPCCore {
     & $Log "  [Prefetch / Recent] cleared."
 
     & $Log "-- STEP 4: Temporary Files + Rigorous AppData --"
-    & $Log "  (Busy/locked files auto-skip — no prompts)"
+    & $Log "  (Busy/locked files auto-skip - no prompts)"
     Clear-SafeTempTree "%TEMP%"
     Clear-SafeTempTree "C:\Windows\Temp"
     Clear-RigorousTempLocations

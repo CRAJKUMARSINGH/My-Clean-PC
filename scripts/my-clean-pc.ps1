@@ -21,7 +21,7 @@ Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Passwords (Login Data) are NEVER touched." -ForegroundColor Yellow
 Write-Host "  Downloads folder is NEVER touched."        -ForegroundColor Yellow
-Write-Host "  Busy temp/cache files auto-skip — no prompts." -ForegroundColor Yellow
+Write-Host "  Busy temp/cache files auto-skip - no prompts." -ForegroundColor Yellow
 Write-Host ""
 
 function Write-CleanLog {
