@@ -31,6 +31,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
+      "@clean-pc": path.resolve(import.meta.dirname, "..", "..", "scripts"),
     },
     dedupe: ["react", "react-dom"],
   },
@@ -46,6 +47,7 @@ export default defineConfig({
     allowedHosts: true,
     fs: {
       strict: true,
+      allow: [path.resolve(import.meta.dirname, "..", "..")],
     },
   },
   preview: {

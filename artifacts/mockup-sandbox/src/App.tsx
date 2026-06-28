@@ -94,7 +94,8 @@ const CHANGELOG = [
     badge: "",
     badgeColor: "",
     items: [
-      "Initial release: my-clean-pc.bat cleans 9 junk categories",
+      "Rigorous temp + AppData deep sweep across all Local/Roaming apps",
+      "Initial release: my-clean-pc.bat cleans 10 junk categories",
       "Covers AI IDEs (9 apps), 8 browsers, Temp, Prefetch, DNS, and more",
       "Hardcoded exclusions: passwords, Downloads folder always skipped",
     ],
@@ -176,7 +177,7 @@ function ShareButton() {
     const url = window.location.href;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "My Clean PC", text: "Free Windows junk cleaner — silently wipes 9 categories.", url });
+        await navigator.share({ title: "My Clean PC", text: "Free Windows junk cleaner — silently wipes 10 categories.", url });
       } else {
         await navigator.clipboard.writeText(url);
         setState("copied");
@@ -251,7 +252,7 @@ function ScanDemo() {
   const [progress, setProgress] = useState(0);
   const [line, setLine] = useState("");
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lines = ["Cursor\\Cache…","Windsurf\\logs…","Chrome\\Cache…","Edge\\Cache…","Brave\\Cache…","Firefox cache2…","%TEMP%\\*…","C:\\Windows\\Temp…","$Recycle.Bin…","SoftwareDistribution…","thumbcache_*.db…","DNS cache…"];
+  const lines = ["Cursor\\Cache…","Windsurf\\logs…","Chrome\\Cache…","Edge\\Cache…","Brave\\Cache…","Firefox cache2…","%TEMP%\\*…","%LOCALAPPDATA%\\Temp…","AppData\\*\\Cache…","AppData\\*\\Logs…","C:\\Windows\\Temp…","$Recycle.Bin…","SoftwareDistribution…","thumbcache_*.db…","DNS cache…"];
 
   const start = () => {
     setProgress(0); setPhase("scanning"); setLine(lines[0]);
@@ -278,7 +279,7 @@ function ScanDemo() {
             <div className="w-12 h-12 rounded-full bg-blue-500/15 flex items-center justify-center mx-auto mb-4">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             </div>
-            <p className="text-gray-400 mb-5 leading-relaxed text-[11px]">Scans 9 categories — AI IDEs,<br/>browsers, temp files &amp; more</p>
+            <p className="text-gray-400 mb-5 leading-relaxed text-[11px]">Scans 10 categories — AI IDEs,<br/>browsers, rigorous temp &amp; AppData &amp; more</p>
             <button onClick={start} className="bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-semibold px-5 py-2 rounded-lg transition-colors">Run Demo</button>
           </div>
         )}
@@ -438,7 +439,7 @@ function AutoClean() {
             <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors flex items-center justify-center text-lg">🦇</div>
             <div className="flex-1">
               <p className="font-semibold text-gray-900 dark:text-white text-sm">my-clean-pc.bat</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">The cleaning script — cleans all 9 categories silently and exits</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">The cleaning script — cleans all 10 categories silently and exits</p>
             </div>
             <span className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">
               <DownloadIcon size={13}/> Download
@@ -481,8 +482,9 @@ function AutoClean() {
 /* ─── What It Cleans ──────────────────────────────────────────────── */
 const CATEGORIES = [
   { icon: "🤖", title: "AI IDE Caches",    count: "9 apps",     items: ["Cursor","Windsurf","Kiro","Trae AI","Warp","Devin","Qoder","Antigravity","Genspark"],    desc: "Cache, logs, and temp data from AI coding tools — can reach several GB over weeks." },
-  { icon: "🌐", title: "Browser Data",     count: "8 browsers", items: ["Chrome","Edge","Brave","Vivaldi","Opera","Firefox","Yandex","Genspark Browser"],         desc: "Cache, cookies, history, and sessions. Passwords are always skipped." },
-  { icon: "🗂️", title: "Temp Files",       count: "2 folders",  items: ["%TEMP%","C:\\Windows\\Temp"],                                                           desc: "Leftover files from installers, updates, and app crashes." },
+  { icon: "🌐", title: "Browser Data",     count: "All installed", items: ["Auto-detect every browser on PC","Chrome, Edge, Firefox, Brave, Opera + any other","Cache, cookies, history, sessions"], desc: "Scans AppData for all browsers — cleans like Ctrl+Shift+Delete. Passwords always skipped." },
+  { icon: "🗂️", title: "Temp Files",       count: "Rigorous",   items: ["%TEMP%","%LOCALAPPDATA%\\Temp","C:\\Windows\\Temp","CrashDumps","D3DSCache","WebCache","Every app's Temp/tmp"], desc: "Maximum safe local temp cleanup — every known temp location plus Temp folders inside all Local apps." },
+  { icon: "🧹", title: "AppData Deep Sweep", count: "All apps",   items: ["%LOCALAPPDATA%\\*\\Cache","%LOCALAPPDATA%\\*\\Logs","%APPDATA%\\*\\Temp","%APPDATA%\\*\\CachedData"], desc: "Scans every app in Local and Roaming — deletes cache, temp, and log folders (maximum safe junk). Passwords skipped." },
   { icon: "⚡", title: "Prefetch",         count: "2 paths",    items: ["C:\\Windows\\Prefetch","Recent Activity"],                                               desc: "Stale prefetch and recent file shortcuts from Explorer." },
   { icon: "🗑️", title: "Recycle Bin",     count: "All drives",  items: ["$Recycle.Bin on every drive"],                                                          desc: "Empties the Recycle Bin across all connected drives." },
   { icon: "🔄", title: "Update Cache",     count: "2 paths",    items: ["SoftwareDistribution\\Download","DataStore\\Logs"],                                     desc: "Already-installed Windows update files taking up space." },

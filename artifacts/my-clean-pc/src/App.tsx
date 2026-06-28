@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import MY_CLEAN_PC_BAT from "@clean-pc/my-clean-pc.bat?raw";
+import MY_CLEAN_PC_PS1 from "@clean-pc/my-clean-pc.ps1?raw";
 
 /* ═══════════════════════════════════════════════════════
    CONFETTI
@@ -248,502 +250,10 @@ function greeting(): { text: string; emoji: string } {
 }
 
 /* ═══════════════════════════════════════════════════════
-   EMBEDDED WINDOWS SCRIPTS
+   WINDOWS SCRIPTS (canonical: scripts/my-clean-pc.*)
 ═══════════════════════════════════════════════════════ */
-const WIN_BAT = `@echo off
-title My Clean PC - Windows Cache Cleaner
-color 0A
-
-echo ============================================
-echo   My Clean PC - Windows Cache Cleaner
-echo   Designed for Priyanka
-echo ============================================
-echo.
-echo   Hi Priyanka! This tool will safely clean up
-echo   junk files from your PC to help it run faster.
-echo.
-echo   WHAT THIS DOES:
-echo     - Remove temporary and cached files (safe to delete)
-echo     - Clear browser history and cookies
-echo     - Free up disk space
-echo.
-echo   WHAT THIS WILL NEVER TOUCH:
-echo     - Your saved passwords (Login Data)
-echo     - Your Downloads folder
-echo     - Your personal files and documents
-echo.
-echo ============================================
-echo   IMPORTANT: Please close ALL your browsers
-echo   (Chrome, Edge, Firefox, etc.) BEFORE continuing.
-echo   Otherwise some files cannot be cleaned properly.
-echo ============================================
-echo.
-pause
-echo.
-echo   Great! Starting cleanup now. Please wait...
-echo.
-
-goto :afterfn
-:ChromeClean
-  for /d %%P in ("%~1\\*") do (
-    rd /s /q "%%P\\Cache"                        2>nul
-    rd /s /q "%%P\\Code Cache"                   2>nul
-    rd /s /q "%%P\\GPUCache"                     2>nul
-    rd /s /q "%%P\\Media Cache"                  2>nul
-    rd /s /q "%%P\\blob_storage"                 2>nul
-    rd /s /q "%%P\\Service Worker\\CacheStorage" 2>nul
-    rd /s /q "%%P\\Service Worker\\ScriptCache"  2>nul
-    rd /s /q "%%P\\Local Storage"                2>nul
-    rd /s /q "%%P\\IndexedDB"                    2>nul
-    rd /s /q "%%P\\Session Storage"              2>nul
-    rd /s /q "%%P\\Application Cache"            2>nul
-    rd /s /q "%%P\\Network"                      2>nul
-    rd /s /q "%%P\\Extension State"              2>nul
-    rd /s /q "%%P\\Storage"                      2>nul
-    del /f /q "%%P\\Cookies"                     2>nul
-    del /f /q "%%P\\Cookies-journal"             2>nul
-    del /f /q "%%P\\History"                     2>nul
-    del /f /q "%%P\\History-journal"             2>nul
-    del /f /q "%%P\\Visited Links"               2>nul
-    del /f /q "%%P\\Top Sites"                   2>nul
-    del /f /q "%%P\\Top Sites-journal"           2>nul
-    del /f /q "%%P\\Shortcuts"                   2>nul
-    del /f /q "%%P\\Shortcuts-journal"           2>nul
-    del /f /q "%%P\\Network Action Predictor"    2>nul
-    del /f /q "%%P\\Favicons"                    2>nul
-    del /f /q "%%P\\Favicons-journal"            2>nul
-    del /f /q "%%P\\Current Session"             2>nul
-    del /f /q "%%P\\Last Session"                2>nul
-    del /f /q "%%P\\Current Tabs"                2>nul
-    del /f /q "%%P\\Last Tabs"                   2>nul
-    del /f /q "%%P\\Web Data"                    2>nul
-    del /f /q "%%P\\Web Data-journal"            2>nul
-    del /f /q "%%P\\Extension Cookies"           2>nul
-    del /f /q "%%P\\QuotaManager"                2>nul
-    :: Login Data intentionally SKIPPED - your passwords are SAFE
-  )
-  exit /b
-:afterfn
-
-echo ============================================
-echo  STEP 1 of 6:  AI App Caches
-echo ============================================
-echo [1] Cleaning Antigravity...
-if exist "%APPDATA%\\Antigravity"      rd /s /q "%APPDATA%\\Antigravity" 2>nul
-if exist "%LOCALAPPDATA%\\Antigravity" rd /s /q "%LOCALAPPDATA%\\Antigravity" 2>nul
-echo [2] Cleaning Cursor...
-if exist "%APPDATA%\\Cursor\\Cache"        rd /s /q "%APPDATA%\\Cursor\\Cache" 2>nul
-if exist "%APPDATA%\\Cursor\\CachedData"   rd /s /q "%APPDATA%\\Cursor\\CachedData" 2>nul
-if exist "%APPDATA%\\Cursor\\logs"         rd /s /q "%APPDATA%\\Cursor\\logs" 2>nul
-if exist "%LOCALAPPDATA%\\cursor-updater"  rd /s /q "%LOCALAPPDATA%\\cursor-updater" 2>nul
-echo [3] Cleaning Kiro...
-if exist "%APPDATA%\\kiro\\Cache"      rd /s /q "%APPDATA%\\kiro\\Cache" 2>nul
-if exist "%APPDATA%\\kiro\\CachedData" rd /s /q "%APPDATA%\\kiro\\CachedData" 2>nul
-if exist "%LOCALAPPDATA%\\kiro"        rd /s /q "%LOCALAPPDATA%\\kiro" 2>nul
-echo [4] Cleaning Trae AI...
-if exist "%APPDATA%\\Trae"      rd /s /q "%APPDATA%\\Trae" 2>nul
-if exist "%APPDATA%\\trae-ai"   rd /s /q "%APPDATA%\\trae-ai" 2>nul
-if exist "%LOCALAPPDATA%\\Trae" rd /s /q "%LOCALAPPDATA%\\Trae" 2>nul
-echo [5] Cleaning Windsurf...
-if exist "%APPDATA%\\Windsurf\\Cache"      rd /s /q "%APPDATA%\\Windsurf\\Cache" 2>nul
-if exist "%APPDATA%\\Windsurf\\CachedData" rd /s /q "%APPDATA%\\Windsurf\\CachedData" 2>nul
-if exist "%APPDATA%\\Windsurf\\logs"       rd /s /q "%APPDATA%\\Windsurf\\logs" 2>nul
-if exist "%LOCALAPPDATA%\\Windsurf"        rd /s /q "%LOCALAPPDATA%\\Windsurf" 2>nul
-echo [6] Cleaning Warp...
-if exist "%APPDATA%\\warp"            rd /s /q "%APPDATA%\\warp" 2>nul
-if exist "%LOCALAPPDATA%\\Warp\\data" rd /s /q "%LOCALAPPDATA%\\Warp\\data" 2>nul
-echo [7] Cleaning Devin...
-if exist "%APPDATA%\\Devin"      rd /s /q "%APPDATA%\\Devin" 2>nul
-if exist "%LOCALAPPDATA%\\Devin" rd /s /q "%LOCALAPPDATA%\\Devin" 2>nul
-echo [8] Cleaning Genspark...
-if exist "%APPDATA%\\Genspark"      rd /s /q "%APPDATA%\\Genspark" 2>nul
-if exist "%LOCALAPPDATA%\\Genspark" rd /s /q "%LOCALAPPDATA%\\Genspark" 2>nul
-echo     All AI app caches cleared!
-
-echo.
-echo ============================================
-echo  STEP 2 of 6:  Browser Cache and History
-echo  (Your PASSWORDS are 100%% SAFE!)
-echo ============================================
-
-echo [B1] Google Chrome...
-if exist "%LOCALAPPDATA%\\Google\\Chrome\\User Data" (
-  call :ChromeClean "%LOCALAPPDATA%\\Google\\Chrome\\User Data"
-  echo      Done - passwords NOT touched!
-) else ( echo      Chrome not installed, skipping. )
-
-echo [B2] Microsoft Edge...
-if exist "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data" (
-  call :ChromeClean "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data"
-  echo      Done - passwords NOT touched!
-) else ( echo      Edge not installed, skipping. )
-
-echo [B3] Brave Browser...
-if exist "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data" (
-  call :ChromeClean "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data"
-  echo      Done - passwords NOT touched!
-) else ( echo      Brave not installed, skipping. )
-
-echo [B4] Vivaldi...
-if exist "%LOCALAPPDATA%\\Vivaldi\\User Data" (
-  call :ChromeClean "%LOCALAPPDATA%\\Vivaldi\\User Data"
-  echo      Done - passwords NOT touched!
-) else ( echo      Vivaldi not installed, skipping. )
-
-echo [B5] Opera...
-if exist "%APPDATA%\\Opera Software\\Opera Stable" (
-  call :ChromeClean "%APPDATA%\\Opera Software\\Opera Stable"
-  echo      Done - passwords NOT touched!
-) else ( echo      Opera not installed, skipping. )
-
-echo [B6] Genspark Browser...
-if exist "%LOCALAPPDATA%\\Genspark\\User Data" (
-  call :ChromeClean "%LOCALAPPDATA%\\Genspark\\User Data"
-  echo      Done - passwords NOT touched!
-) else ( echo      Genspark Browser not installed, skipping. )
-
-echo [B7] Yandex Browser...
-if exist "%LOCALAPPDATA%\\Yandex\\YandexBrowser\\User Data" (
-  call :ChromeClean "%LOCALAPPDATA%\\Yandex\\YandexBrowser\\User Data"
-  echo      Done - passwords NOT touched!
-) else ( echo      Yandex not installed, skipping. )
-
-echo [B8] Firefox...
-if exist "%APPDATA%\\Mozilla\\Firefox\\Profiles" (
-  for /d %%P in ("%APPDATA%\\Mozilla\\Firefox\\Profiles\\*") do (
-    rd /s /q "%%P\\cache2"          2>nul
-    rd /s /q "%%P\\startupCache"    2>nul
-    rd /s /q "%%P\\OfflineCache"    2>nul
-    rd /s /q "%%P\\thumbnails"      2>nul
-    rd /s /q "%%P\\storage"         2>nul
-    del /f /q "%%P\\cookies.sqlite"          2>nul
-    del /f /q "%%P\\cookies.sqlite-shm"      2>nul
-    del /f /q "%%P\\cookies.sqlite-wal"      2>nul
-    del /f /q "%%P\\places.sqlite"           2>nul
-    del /f /q "%%P\\places.sqlite-shm"       2>nul
-    del /f /q "%%P\\places.sqlite-wal"       2>nul
-    del /f /q "%%P\\formhistory.sqlite"      2>nul
-    del /f /q "%%P\\formhistory.sqlite-shm"  2>nul
-    del /f /q "%%P\\formhistory.sqlite-wal"  2>nul
-    del /f /q "%%P\\downloads.sqlite"        2>nul
-    del /f /q "%%P\\favicons.sqlite"         2>nul
-    del /f /q "%%P\\favicons.sqlite-shm"     2>nul
-    del /f /q "%%P\\favicons.sqlite-wal"     2>nul
-    del /f /q "%%P\\webappsstore.sqlite"     2>nul
-    del /f /q "%%P\\content-prefs.sqlite"    2>nul
-    del /f /q "%%P\\permissions.sqlite"      2>nul
-    del /f /q "%%P\\sessionstore.jsonlz4"    2>nul
-    del /f /q "%%P\\sessionCheckpoints.json" 2>nul
-    del /f /q "%%P\\previous.jsonlz4"        2>nul
-    del /f /q "%%P\\recovery.jsonlz4"        2>nul
-    del /f /q "%%P\\recovery.baklz4"         2>nul
-    :: key4.db (passwords) intentionally SKIPPED
-  )
-  echo      Done - passwords NOT touched!
-) else ( echo      Firefox not installed, skipping. )
-
-echo.
-echo ============================================
-echo  STEP 3 of 6:  Prefetch and Recent Files
-echo  (Safe to delete - Windows rebuilds them)
-echo ============================================
-echo [P1] Windows Prefetch files...
-del /f /q "C:\\Windows\\Prefetch\\*.pf" 2>nul
-echo      Done!
-echo [P2] Recent Activity list (your FILES are safe!)...
-if exist "%APPDATA%\\Microsoft\\Windows\\Recent"          del /f /q "%APPDATA%\\Microsoft\\Windows\\Recent\\*" 2>nul
-if exist "%LOCALAPPDATA%\\Microsoft\\Windows\\History"    rd /s /q "%LOCALAPPDATA%\\Microsoft\\Windows\\History" 2>nul
-echo      Done!
-
-echo.
-echo ============================================
-echo  STEP 4 of 6:  Temporary Files
-echo  (Errors here are normal - busy files are skipped)
-echo ============================================
-echo [T1] User Temp folder...
-if exist "%TEMP%" (
-  del /f /s /q "%TEMP%\\*" 2>nul
-  for /d %%D in ("%TEMP%\\*") do rd /s /q "%%D" 2>nul
-)
-echo      Done!
-echo [T2] Windows system Temp folder...
-if exist "C:\\Windows\\Temp" (
-  del /f /s /q "C:\\Windows\\Temp\\*" 2>nul
-  for /d %%D in ("C:\\Windows\\Temp\\*") do rd /s /q "%%D" 2>nul
-)
-echo      Done!
-
-echo.
-echo ============================================
-echo  STEP 5 of 6:  Recycle Bin and Update Cache
-echo ============================================
-echo [R1] Emptying Recycle Bin...
-for /d %%R in ("%SystemDrive%\\$Recycle.Bin\\*") do rd /s /q "%%R" 2>nul
-echo      Done!
-echo [W1] Windows Update download cache...
-if exist "C:\\Windows\\SoftwareDistribution\\Download" (
-  del /f /s /q "C:\\Windows\\SoftwareDistribution\\Download\\*" 2>nul
-  for /d %%D in ("C:\\Windows\\SoftwareDistribution\\Download\\*") do rd /s /q "%%D" 2>nul
-)
-echo      Done!
-echo [W2] Windows Update log files...
-if exist "C:\\Windows\\SoftwareDistribution\\DataStore\\Logs" (
-  del /f /s /q "C:\\Windows\\SoftwareDistribution\\DataStore\\Logs\\*" 2>nul
-)
-echo      Done!
-echo [N1] Thumbnail and icon cache...
-echo      (Icons may look blank briefly - that is NORMAL!)
-if exist "%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer" (
-  del /f /q "%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer\\thumbcache_*.db" 2>nul
-  del /f /q "%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer\\iconcache_*.db"  2>nul
-)
-echo      Done!
-echo [N2] Internet Explorer / WinINet cache...
-if exist "%LOCALAPPDATA%\\Microsoft\\Windows\\INetCache" rd /s /q "%LOCALAPPDATA%\\Microsoft\\Windows\\INetCache" 2>nul
-echo      Done!
-
-echo.
-echo ============================================
-echo  STEP 6 of 6:  Event Logs and DNS Cache
-echo ============================================
-wevtutil cl Application 2>nul && echo [E1] Application log cleared!
-wevtutil cl System      2>nul && echo [E2] System log cleared!
-wevtutil cl Security    2>nul && echo [E3] Security log cleared!
-wevtutil cl Setup       2>nul && echo [E4] Setup log cleared!
-echo [D1] Flushing DNS cache (helps fix website loading problems)...
-ipconfig /flushdns >nul 2>&1
-echo      Done!
-
-echo.
-echo ============================================
-echo.
-echo   ALL DONE, Priyanka! Your PC is cleaner!
-echo.
-echo   What was cleaned:
-echo     * AI app caches      - CLEANED
-echo     * Browser cache      - CLEANED
-echo     * Temp files         - CLEANED
-echo     * Recycle Bin        - EMPTIED
-echo     * Windows Updates    - CLEANED
-echo     * DNS cache          - FLUSHED
-echo.
-echo   What was NOT touched:
-echo     * Your passwords     - SAFE
-echo     * Your Downloads     - SAFE
-echo     * Your personal files- SAFE
-echo.
-echo   TIP: Restart your PC now for the best results!
-echo.
-echo ============================================
-pause
-`;
-
-const WIN_PS1 = `# My Clean PC - Windows Cache Cleaner (PowerShell)
-# Designed for Priyanka - run as Administrator for best results
-# To run: right-click -> "Run with PowerShell"
-
-$ErrorActionPreference = "SilentlyContinue"
-
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host "  My Clean PC - Windows Cache Cleaner"       -ForegroundColor Cyan
-Write-Host "  Designed for Priyanka"                     -ForegroundColor Magenta
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "  Hi Priyanka! This will safely clean junk"  -ForegroundColor White
-Write-Host "  files to help your PC run faster."         -ForegroundColor White
-Write-Host ""
-Write-Host "  WHAT THIS DOES:"                           -ForegroundColor Yellow
-Write-Host "    - Removes temporary and cached files"    -ForegroundColor Yellow
-Write-Host "    - Clears browser history and cookies"    -ForegroundColor Yellow
-Write-Host "    - Frees up disk space"                   -ForegroundColor Yellow
-Write-Host ""
-Write-Host "  WHAT THIS NEVER TOUCHES:"                  -ForegroundColor Green
-Write-Host "    - Your passwords (Login Data) - SAFE"    -ForegroundColor Green
-Write-Host "    - Your Downloads folder       - SAFE"    -ForegroundColor Green
-Write-Host "    - Your personal files         - SAFE"    -ForegroundColor Green
-Write-Host ""
-Write-Host "  IMPORTANT: Close all your browsers first!" -ForegroundColor Red
-Write-Host "  (Chrome, Edge, Firefox, etc.)"             -ForegroundColor Red
-Write-Host ""
-Read-Host "Press Enter when ready"
-Write-Host ""
-Write-Host "  Starting cleanup. Please wait..." -ForegroundColor Green
-Write-Host ""
-
-function Remove-Paths {
-    param([string]$Label, [string[]]$Paths)
-    Write-Host "  [$Label]" -ForegroundColor White
-    $found = $false
-    foreach ($p in $Paths) {
-        $exp = [System.Environment]::ExpandEnvironmentVariables($p)
-        if (Test-Path $exp) {
-            Remove-Item -Recurse -Force $exp
-            Write-Host "    Cleared: $exp" -ForegroundColor Green
-            $found = $true
-        }
-    }
-    if (-not $found) { Write-Host "    Not installed or already clean." -ForegroundColor DarkGray }
-    else             { Write-Host "    Done!" -ForegroundColor DarkGray }
-}
-
-function Clear-ChromiumCache {
-    param([string]$Label, [string]$UserDataPath)
-    Write-Host "  [$Label]" -ForegroundColor White
-    $base = [System.Environment]::ExpandEnvironmentVariables($UserDataPath)
-    if (-not (Test-Path $base)) { Write-Host "    Not installed - skipping." -ForegroundColor DarkGray; return }
-    Get-ChildItem $base -Directory | ForEach-Object {
-        $p = $_.FullName
-        $dirs  = @("Cache","Code Cache","GPUCache","Media Cache","blob_storage","Service Worker\\CacheStorage","Service Worker\\ScriptCache","Local Storage","IndexedDB","Session Storage","Application Cache","Network","Extension State","Storage")
-        $files = @("Cookies","Cookies-journal","History","History-journal","Visited Links","Top Sites","Top Sites-journal","Shortcuts","Shortcuts-journal","Network Action Predictor","Favicons","Favicons-journal","Current Session","Last Session","Current Tabs","Last Tabs","Web Data","Web Data-journal","Extension Cookies","QuotaManager")
-        foreach ($d in $dirs)  { if (Test-Path "$p\\$d") { Remove-Item -Recurse -Force "$p\\$d" } }
-        foreach ($f in $files) { if (Test-Path "$p\\$f") { Remove-Item -Force "$p\\$f" } }
-        # Login Data intentionally SKIPPED - your passwords are SAFE
-    }
-    Write-Host "    Done! (Passwords NOT touched)" -ForegroundColor DarkGray
-}
-
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host " STEP 1 of 6:  AI App Caches"               -ForegroundColor Cyan
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host ""
-Remove-Paths "1 Antigravity" @("%APPDATA%\\Antigravity","%LOCALAPPDATA%\\Antigravity")
-Remove-Paths "2 Cursor"      @("%APPDATA%\\Cursor\\Cache","%APPDATA%\\Cursor\\CachedData","%APPDATA%\\Cursor\\logs","%LOCALAPPDATA%\\cursor-updater")
-Remove-Paths "3 Kiro"        @("%APPDATA%\\kiro\\Cache","%APPDATA%\\kiro\\CachedData","%LOCALAPPDATA%\\kiro")
-Remove-Paths "4 Trae AI"     @("%APPDATA%\\Trae","%APPDATA%\\trae-ai","%LOCALAPPDATA%\\Trae")
-Remove-Paths "5 Windsurf"    @("%APPDATA%\\Windsurf\\Cache","%APPDATA%\\Windsurf\\CachedData","%APPDATA%\\Windsurf\\logs","%LOCALAPPDATA%\\Windsurf")
-Remove-Paths "6 Warp"        @("%APPDATA%\\warp","%LOCALAPPDATA%\\Warp\\data")
-Remove-Paths "7 Devin"       @("%APPDATA%\\Devin","%LOCALAPPDATA%\\Devin")
-Remove-Paths "8 Genspark"    @("%APPDATA%\\Genspark","%LOCALAPPDATA%\\Genspark")
-
-Write-Host ""
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host " STEP 2 of 6:  Browser Cache and History"   -ForegroundColor Cyan
-Write-Host " (Your PASSWORDS are completely SAFE!)"      -ForegroundColor Green
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host ""
-Clear-ChromiumCache "B1 Google Chrome"    "%LOCALAPPDATA%\\Google\\Chrome\\User Data"
-Clear-ChromiumCache "B2 Microsoft Edge"   "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data"
-Clear-ChromiumCache "B3 Brave"            "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data"
-Clear-ChromiumCache "B4 Vivaldi"          "%LOCALAPPDATA%\\Vivaldi\\User Data"
-Clear-ChromiumCache "B5 Opera"            "%APPDATA%\\Opera Software\\Opera Stable"
-Clear-ChromiumCache "B6 Genspark Browser" "%LOCALAPPDATA%\\Genspark\\User Data"
-Clear-ChromiumCache "B7 Yandex Browser"   "%LOCALAPPDATA%\\Yandex\\YandexBrowser\\User Data"
-
-Write-Host "  [B8 Firefox]" -ForegroundColor White
-$ffProfiles = [System.Environment]::ExpandEnvironmentVariables("%APPDATA%\\Mozilla\\Firefox\\Profiles")
-if (Test-Path $ffProfiles) {
-    Get-ChildItem $ffProfiles -Directory | ForEach-Object {
-        $p = $_.FullName
-        $dirs  = @("cache2","startupCache","OfflineCache","thumbnails","storage")
-        $files = @("cookies.sqlite","cookies.sqlite-shm","cookies.sqlite-wal","places.sqlite","places.sqlite-shm","places.sqlite-wal","formhistory.sqlite","formhistory.sqlite-shm","formhistory.sqlite-wal","downloads.sqlite","favicons.sqlite","favicons.sqlite-shm","favicons.sqlite-wal","webappsstore.sqlite","content-prefs.sqlite","permissions.sqlite","sessionstore.jsonlz4","sessionCheckpoints.json","previous.jsonlz4","recovery.jsonlz4","recovery.baklz4")
-        foreach ($d in $dirs)  { if (Test-Path "$p\\$d") { Remove-Item -Recurse -Force "$p\\$d" } }
-        foreach ($f in $files) { if (Test-Path "$p\\$f") { Remove-Item -Force "$p\\$f" } }
-        # key4.db (passwords) intentionally SKIPPED
-    }
-    Write-Host "    Done! (Passwords NOT touched)" -ForegroundColor DarkGray
-} else { Write-Host "    Firefox not installed." -ForegroundColor DarkGray }
-
-Write-Host ""
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host " STEP 3 of 6:  Prefetch and Recent Files"   -ForegroundColor Cyan
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "  [P1] Windows Prefetch..." -ForegroundColor White
-Get-ChildItem "C:\\Windows\\Prefetch" -Filter "*.pf" | Remove-Item -Force
-Write-Host "       Done!" -ForegroundColor DarkGray
-
-Write-Host "  [P2] Recent Activity list..." -ForegroundColor White
-$recentPath  = [System.Environment]::ExpandEnvironmentVariables("%APPDATA%\\Microsoft\\Windows\\Recent")
-$historyPath = [System.Environment]::ExpandEnvironmentVariables("%LOCALAPPDATA%\\Microsoft\\Windows\\History")
-if (Test-Path $recentPath)  { Get-ChildItem $recentPath  | Remove-Item -Recurse -Force }
-if (Test-Path $historyPath) { Remove-Item -Recurse -Force $historyPath }
-Write-Host "       Done! (Your actual files are safe)" -ForegroundColor DarkGray
-
-Write-Host ""
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host " STEP 4 of 6:  Temporary Files"             -ForegroundColor Cyan
-Write-Host " (Errors here are normal - busy files skip)" -ForegroundColor DarkGray
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "  [T1] User Temp folder..." -ForegroundColor White
-$userTemp = [System.Environment]::ExpandEnvironmentVariables("%TEMP%")
-if (Test-Path $userTemp) { Get-ChildItem $userTemp -Recurse -Force | Remove-Item -Recurse -Force }
-Write-Host "       Done!" -ForegroundColor DarkGray
-
-Write-Host "  [T2] Windows system Temp..." -ForegroundColor White
-if (Test-Path "C:\\Windows\\Temp") { Get-ChildItem "C:\\Windows\\Temp" -Recurse -Force | Remove-Item -Recurse -Force }
-Write-Host "       Done!" -ForegroundColor DarkGray
-
-Write-Host ""
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host " STEP 5 of 6:  Recycle Bin and Update Cache" -ForegroundColor Cyan
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "  [R1] Emptying Recycle Bin..." -ForegroundColor White
-Clear-RecycleBin -Force
-Write-Host "       Done!" -ForegroundColor DarkGray
-
-Write-Host "  [W1] Windows Update download cache..." -ForegroundColor White
-$wuDownload = "C:\\Windows\\SoftwareDistribution\\Download"
-if (Test-Path $wuDownload) { Get-ChildItem $wuDownload -Recurse -Force | Remove-Item -Recurse -Force }
-Write-Host "       Done!" -ForegroundColor DarkGray
-
-Write-Host "  [W2] Windows Update log files..." -ForegroundColor White
-$wuLogs = "C:\\Windows\\SoftwareDistribution\\DataStore\\Logs"
-if (Test-Path $wuLogs) { Get-ChildItem $wuLogs -Recurse -Force | Remove-Item -Recurse -Force }
-Write-Host "       Done!" -ForegroundColor DarkGray
-
-Write-Host "  [N1] Thumbnail and icon cache..." -ForegroundColor White
-Write-Host "       (Icons may look blank briefly - normal!)" -ForegroundColor DarkGray
-$explorerCache = [System.Environment]::ExpandEnvironmentVariables("%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer")
-if (Test-Path $explorerCache) {
-    Get-ChildItem $explorerCache -Filter "thumbcache_*.db" | Remove-Item -Force
-    Get-ChildItem $explorerCache -Filter "iconcache_*.db"  | Remove-Item -Force
-}
-Write-Host "       Done!" -ForegroundColor DarkGray
-
-Write-Host "  [N2] WinINet cache..." -ForegroundColor White
-$inetCache = [System.Environment]::ExpandEnvironmentVariables("%LOCALAPPDATA%\\Microsoft\\Windows\\INetCache")
-if (Test-Path $inetCache) { Remove-Item -Recurse -Force $inetCache }
-Write-Host "       Done!" -ForegroundColor DarkGray
-
-Write-Host ""
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host " STEP 6 of 6:  Event Logs and DNS Cache"    -ForegroundColor Cyan
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host ""
-wevtutil cl Application 2>$null; Write-Host "  [E1] Application log cleared!" -ForegroundColor DarkGray
-wevtutil cl System      2>$null; Write-Host "  [E2] System log cleared!"      -ForegroundColor DarkGray
-wevtutil cl Security    2>$null; Write-Host "  [E3] Security log cleared!"    -ForegroundColor DarkGray
-wevtutil cl Setup       2>$null; Write-Host "  [E4] Setup log cleared!"       -ForegroundColor DarkGray
-
-Write-Host "  [D1] Flushing DNS cache..." -ForegroundColor White
-ipconfig /flushdns | Out-Null
-Write-Host "       Done! (Helps fix website loading issues)" -ForegroundColor DarkGray
-
-Write-Host ""
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "  ALL DONE, Priyanka! Your PC is cleaner!" -ForegroundColor Green
-Write-Host ""
-Write-Host "  What was cleaned:"                        -ForegroundColor White
-Write-Host "    * AI app caches      - CLEANED"         -ForegroundColor Green
-Write-Host "    * Browser cache      - CLEANED"         -ForegroundColor Green
-Write-Host "    * Temp files         - CLEANED"         -ForegroundColor Green
-Write-Host "    * Recycle Bin        - EMPTIED"         -ForegroundColor Green
-Write-Host "    * Windows Updates    - CLEANED"         -ForegroundColor Green
-Write-Host "    * DNS cache          - FLUSHED"         -ForegroundColor Green
-Write-Host ""
-Write-Host "  What was NOT touched:"                    -ForegroundColor White
-Write-Host "    * Your passwords     - SAFE"            -ForegroundColor Yellow
-Write-Host "    * Your Downloads     - SAFE"            -ForegroundColor Yellow
-Write-Host "    * Your personal files- SAFE"            -ForegroundColor Yellow
-Write-Host ""
-Write-Host "  TIP: Restart your PC for best results!"  -ForegroundColor Magenta
-Write-Host ""
-Write-Host "============================================" -ForegroundColor Cyan
-Read-Host "Press Enter to close"
-`;
+const WIN_BAT = MY_CLEAN_PC_BAT;
+const WIN_PS1 = MY_CLEAN_PC_PS1;
 
 /* ═══════════════════════════════════════════════════════
    WINDOWS GUI LAUNCHER SCRIPT  (WinForms — no cmd prompt)
@@ -754,6 +264,8 @@ const WIN_GUI_PS1 = `# My Clean PC - Beautiful GUI Launcher
 # For best results: right-click -> "Run as Administrator"
 
 $ErrorActionPreference = "SilentlyContinue"
+$ConfirmPreference = "None"
+$ProgressPreference = "SilentlyContinue"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -947,6 +459,75 @@ function CleanBrowser {
     WriteLog "    OK  Done! ($n items cleaned)  Passwords NOT touched." "ok"
 }
 
+$script:JunkDirNames = @(
+    "Cache","Caches","CachedData","Code Cache","GPUCache","Media Cache",
+    "Temp","Tmp","tmp","Logs","Log","crashpad","CrashDumps","blob_storage",
+    "startupCache","OfflineCache","Application Cache","INetCache","WebCache",
+    "Updater","updater","D3DSCache","storage","Crash Reports"
+)
+
+function Test-JunkDirName {
+    param([string]$Name)
+    foreach ($jn in $script:JunkDirNames) { if ($Name -ieq $jn) { return $true } }
+    return $false
+}
+
+function Clear-RigorousTempLocations {
+    $fixed = @(
+        "%TEMP%","%LOCALAPPDATA%\\Temp","C:\\Windows\\Temp",
+        "%LOCALAPPDATA%\\CrashDumps","%LOCALAPPDATA%\\D3DSCache",
+        "%LOCALAPPDATA%\\Microsoft\\Windows\\WebCache",
+        "%LOCALAPPDATA%\\Microsoft\\Windows\\Burn\\Burn"
+    )
+    foreach ($raw in $fixed) {
+        $p = [System.Environment]::ExpandEnvironmentVariables($raw)
+        if (Test-Path $p) {
+            Get-ChildItem $p -Force -Recurse -ErrorAction SilentlyContinue |
+                Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+            WriteLog "    >> Cleared temp: $p" "ok"
+        }
+    }
+    $local = [System.Environment]::ExpandEnvironmentVariables("%LOCALAPPDATA%")
+    Get-ChildItem $local -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+        foreach ($n in @("Temp","temp","tmp","Tmp")) {
+            $tp = Join-Path $_.FullName $n
+            if (Test-Path $tp) {
+                Remove-Item -Recurse -Force $tp -ErrorAction SilentlyContinue
+                WriteLog "    >> Cleared temp: $tp" "ok"
+            }
+        }
+    }
+}
+
+function Clear-AppDataJunkSweep {
+    param([string]$Label, [string]$RootVar)
+    WriteLog "  [ $Label ]" "head"
+    $root = [System.Environment]::ExpandEnvironmentVariables($RootVar)
+    if (-not (Test-Path $root)) { WriteLog "    -- Not found, skipping." "skip"; return }
+    $skipParts = @("\\Login Data","\\Login Data For Account","\\key4.db","\\Downloads","\\MyCleanPC\\")
+    $cleared = 0
+    Get-ChildItem $root -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+        $stack = New-Object System.Collections.Stack
+        $stack.Push(@{ Path = $_.FullName; Depth = 0 })
+        while ($stack.Count -gt 0) {
+            $cur = $stack.Pop()
+            Get-ChildItem $cur.Path -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+                $child = $_.FullName
+                $skip = $false
+                foreach ($frag in $skipParts) { if ($child -like "*$frag*") { $skip = $true; break } }
+                if ($skip) { return }
+                if (Test-JunkDirName $_.Name) {
+                    Remove-Item -LiteralPath $child -Recurse -Force -ErrorAction SilentlyContinue
+                    $cleared++
+                } elseif ($cur.Depth -lt 3) {
+                    $stack.Push(@{ Path = $child; Depth = $cur.Depth + 1 })
+                }
+            }
+        }
+    }
+    WriteLog "    OK  Cleared $cleared junk folder(s). Passwords/Downloads NOT touched." "ok"
+}
+
 # ════════════════════════════════════════════════════
 #  START BUTTON CLICK — RUNS ALL STEPS
 # ════════════════════════════════════════════════════
@@ -963,7 +544,29 @@ $btnStart.Add_Click({
     WriteLog "" "info"
     WriteLog "  IMPORTANT: Your passwords, Downloads and" "safe"
     WriteLog "  personal files are NEVER deleted. Ever." "safe"
+    WriteLog "  Temp + app cache: auto-delete, locked files auto-skip." "skip"
     WriteLog "" "info"
+
+    $ranCore = $false
+    $coreFile = Join-Path $PSScriptRoot "clean-pc-core.ps1"
+    if (Test-Path $coreFile) {
+        $ranCore = $true
+        . $coreFile
+        $guiPct = @{ 'STEP 1' = 2; 'STEP 2' = 17; 'STEP 3' = 52; 'STEP 4' = 60; 'STEP 5' = 70; 'STEP 6' = 85 }
+        Invoke-MyCleanPCCore -Log {
+            param([string]$Message)
+            foreach ($k in @('STEP 1','STEP 2','STEP 3','STEP 4','STEP 5','STEP 6')) {
+                if ($Message -like "*$k*") { Tick $guiPct[$k] $Message; break }
+            }
+            $lvl = "info"
+            if ($Message -match 'auto-skip|skipped|NOT touched') { $lvl = "skip" }
+            elseif ($Message -match 'cleared|emptied|flushed') { $lvl = "ok" }
+            elseif ($Message -match '^-- STEP') { $lvl = "head" }
+            WriteLog "  $Message" $lvl
+        }
+        Tick 100 "All done!"
+    }
+    if (-not $ranCore) {
 
     # ─── STEP 1: AI App Caches ───
     WriteLog "============================================" "head"
@@ -1043,13 +646,13 @@ $btnStart.Add_Click({
     WriteLog "  OK  Recent activity list cleared.  (Your actual files are safe!)" "ok"
     Tick 57 "Prefetch and recent files — done."
 
-    # ─── STEP 4: Temp Files ───
+    # ─── STEP 4: Temp Files + Rigorous AppData ───
     WriteLog "" "info"
     WriteLog "============================================" "head"
-    WriteLog "  STEP 4 of 6  —  Temporary Files" "head"
+    WriteLog "  STEP 4 of 6  —  Temporary Files + Rigorous AppData" "head"
     WriteLog "  (Errors here are normal — busy files skip)" "skip"
     WriteLog "============================================" "head"
-    Tick 60 "Step 4 of 6 — Cleaning temporary files..."
+    Tick 60 "Step 4 of 6 — Rigorous temp + AppData sweep..."
     $tmp = [System.Environment]::ExpandEnvironmentVariables("%TEMP%")
     if (Test-Path $tmp) {
         Get-ChildItem $tmp -Recurse -Force -ErrorAction SilentlyContinue |
@@ -1061,7 +664,11 @@ $btnStart.Add_Click({
             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     }
     WriteLog "  OK  System temp folder cleared." "ok"
-    Tick 68 "Temporary files — done."
+    Clear-RigorousTempLocations
+    WriteLog "  OK  Rigorous local temp — all locations cleared." "ok"
+    Clear-AppDataJunkSweep "Local AppData — all apps" "%LOCALAPPDATA%"
+    Clear-AppDataJunkSweep "Roaming AppData — all apps" "%APPDATA%"
+    Tick 68 "Rigorous temp + AppData — done."
 
     # ─── STEP 5: Recycle Bin + Update Cache ───
     WriteLog "" "info"
@@ -1069,7 +676,21 @@ $btnStart.Add_Click({
     WriteLog "  STEP 5 of 6  —  Recycle Bin + Update Cache" "head"
     WriteLog "============================================" "head"
     Tick 70 "Step 5 of 6 — Emptying Recycle Bin..."
-    Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+    if (-not ('RecycleBinNative' -as [type])) {
+        Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public static class RecycleBinNative {
+    [DllImport("Shell32.dll", CharSet = CharSet.Unicode)]
+    public static extern int SHEmptyRecycleBin(IntPtr hwnd, string pszRootPath, uint dwFlags);
+    public const uint SHERB_NOCONFIRMATION = 0x00000001;
+    public const uint SHERB_NOPROGRESSUI   = 0x00000002;
+    public const uint SHERB_NOSOUND        = 0x00000004;
+}
+"@
+    }
+    $rbFlags = [RecycleBinNative]::SHERB_NOCONFIRMATION -bor [RecycleBinNative]::SHERB_NOPROGRESSUI -bor [RecycleBinNative]::SHERB_NOSOUND
+    [RecycleBinNative]::SHEmptyRecycleBin([IntPtr]::Zero, $null, $rbFlags) | Out-Null
     WriteLog "  OK  Recycle Bin emptied." "ok"
     $wuDl = "C:\Windows\SoftwareDistribution\Download"
     if (Test-Path $wuDl) {
@@ -1116,6 +737,7 @@ $btnStart.Add_Click({
     wevtutil cl Setup       2>$null; WriteLog "  OK  Setup event log cleared."       "ok"
     ipconfig /flushdns | Out-Null;   WriteLog "  OK  DNS cache flushed.  (Helps fix website loading issues)" "ok"
     Tick 100 "All done!"
+    }
 
     # ─── DONE! ───
     WriteLog "" "info"
@@ -1126,7 +748,8 @@ $btnStart.Add_Click({
     WriteLog "  What was cleaned:" "ok"
     WriteLog "    * AI app caches       CLEANED" "ok"
     WriteLog "    * Browser cache       CLEANED" "ok"
-    WriteLog "    * Temp files          CLEANED" "ok"
+    WriteLog "    * Temp files          CLEANED (rigorous)" "ok"
+    WriteLog "    * AppData junk        CLEANED (all apps)" "ok"
     WriteLog "    * Recycle Bin         EMPTIED" "ok"
     WriteLog "    * Windows Updates     CLEANED" "ok"
     WriteLog "    * DNS cache           FLUSHED" "ok"
@@ -1249,8 +872,8 @@ function WinDownloadPanel({ type, onDownload }: { type: "bat" | "ps1"; onDownloa
   const [downloaded, setDownloaded] = useState(false);
 
   function handle() {
-    if (type === "bat") downloadFile(WIN_BAT, "clean-pc-windows.bat");
-    else                downloadFile(WIN_PS1, "clean-pc-windows.ps1");
+    if (type === "bat") downloadFile(WIN_BAT, "my-clean-pc.bat");
+    else                downloadFile(WIN_PS1, "my-clean-pc.ps1");
     setDownloaded(true);
     onDownload();
   }
@@ -1272,7 +895,7 @@ function WinDownloadPanel({ type, onDownload }: { type: "bat" | "ps1"; onDownloa
           {type === "bat" ? (
             <ol style={{ paddingLeft: 16, color: "#374151", lineHeight: 2, margin: 0 }}>
               <li>Open your <strong>Downloads</strong> folder</li>
-              <li>Find <strong>clean-pc-windows.bat</strong></li>
+              <li>Find <strong>my-clean-pc.bat</strong></li>
               <li>Right-click it → <strong>"Run as administrator"</strong></li>
               <li>If Windows warns you: click <strong>"More info"</strong> → <strong>"Run anyway"</strong></li>
               <li>Follow the instructions on screen</li>
@@ -1280,7 +903,7 @@ function WinDownloadPanel({ type, onDownload }: { type: "bat" | "ps1"; onDownloa
           ) : (
             <ol style={{ paddingLeft: 16, color: "#374151", lineHeight: 2, margin: 0 }}>
               <li>Open your <strong>Downloads</strong> folder</li>
-              <li>Find <strong>clean-pc-windows.ps1</strong></li>
+              <li>Find <strong>my-clean-pc.ps1</strong></li>
               <li>Right-click it → <strong>"Run with PowerShell"</strong></li>
               <li>If asked about execution policy, type <strong>Y</strong> and press Enter</li>
               <li>Follow the colourful instructions on screen</li>
@@ -1765,8 +1388,8 @@ export default function App() {
           <div className="win-desc">
             <strong>What this cleans on your Windows PC:</strong><br />
             AI IDEs: Cursor, Windsurf, Kiro, Trae AI, Warp, Devin &nbsp;|&nbsp;
-            Browsers: Chrome, Edge, Brave, Firefox, Vivaldi, Opera<br />
-            Also: Temp files · Recycle Bin · Windows Update cache · DNS cache · Event logs
+            Browsers: auto-detects ALL installed (Chrome, Edge, Firefox, Brave, Opera, etc.)<br />
+            Also: Rigorous temp · AppData sweep (Local + Roaming) · Recycle Bin · Windows Update cache · DNS cache · Event logs
             <br />
             <span className="win-safe">🔒 Passwords, Downloads folder, and personal files are NEVER touched.</span>
           </div>

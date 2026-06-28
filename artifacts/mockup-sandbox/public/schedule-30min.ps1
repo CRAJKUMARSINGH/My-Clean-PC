@@ -10,23 +10,28 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$cleanerSrc = Join-Path $scriptDir "my-clean-pc.bat"
-
-if (-not (Test-Path $cleanerSrc)) {
-  Write-Host "ERROR: my-clean-pc.bat not found in the same folder." -ForegroundColor Red
-  exit 1
+foreach ($f in @("cleanup_task.ps1", "clean-pc-core.ps1")) {
+  if (-not (Test-Path (Join-Path $scriptDir $f))) {
+    Write-Host "ERROR: $f not found in the same folder." -ForegroundColor Red
+    exit 1
+  }
 }
 
 $installDir = "$env:LOCALAPPDATA\MyCleanPC"
 if (-not (Test-Path $installDir)) { New-Item -ItemType Directory -Path $installDir | Out-Null }
-Copy-Item -Force $cleanerSrc "$installDir\my-clean-pc.bat"
+Copy-Item -Force (Join-Path $scriptDir "cleanup_task.ps1") "$installDir\cleanup_task.ps1"
+Copy-Item -Force (Join-Path $scriptDir "clean-pc-core.ps1") "$installDir\clean-pc-core.ps1"
+if (Test-Path (Join-Path $scriptDir "my-clean-pc.bat")) {
+  Copy-Item -Force (Join-Path $scriptDir "my-clean-pc.bat") "$installDir\my-clean-pc.bat"
+}
 
-$action  = New-ScheduledTaskAction -Execute "`"$installDir\my-clean-pc.bat`""
-$trigger = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Minutes 30) -Once -At (Get-Date)
+$taskScript = Join-Path $installDir "cleanup_task.ps1"
+$action   = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$taskScript`""
+$trigger  = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Minutes 30) -Once -At (Get-Date)
 $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -RunOnlyIfNetworkAvailable $false
 
 Unregister-ScheduledTask -TaskName "MyCleanPC" -Confirm:$false -ErrorAction SilentlyContinue
 Register-ScheduledTask -TaskName "MyCleanPC" -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force | Out-Null
 
-Write-Host "My Clean PC scheduled: every 30 minutes." -ForegroundColor Green
+Write-Host "My Clean PC scheduled: every 30 minutes (fully silent — no prompts)." -ForegroundColor Green
 exit 0
