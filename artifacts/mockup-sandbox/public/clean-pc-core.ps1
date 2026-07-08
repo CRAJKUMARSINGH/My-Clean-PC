@@ -24,6 +24,44 @@ function Test-SkipCleanPath {
     return $false
 }
 
+function Close-BrowserProcesses {
+    param([scriptblock]$Log = { param($m) })
+    $browserProcesses = @(
+        "chrome", "msedge", "brave", "vivaldi", "opera", "yandexbrowser",
+        "chromium", "arc", "wavebox", "sidekick", "centbrowser", "coccoc",
+        "ucbrowser", "epicprivacybrowser", "gensparkbrowser", "firefox",
+        "waterfox", "palemoon", "librewolf", "torbrowser", "basilisk", "thunderbird"
+    )
+    foreach ($procName in $browserProcesses) {
+        try {
+            $procs = Get-Process -Name $procName -ErrorAction SilentlyContinue
+            if ($procs) {
+                & $Log "  Closing $procName processes..."
+                Stop-Process -Name $procName -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 2  # Give processes time to close
+            }
+        } catch {}
+    }
+}
+
+function Remove-SafePathWithRetry {
+    param(
+        [Parameter(Mandatory)][string]$LiteralPath,
+        [switch]$Recurse,
+        [int]$MaxRetries = 2
+    )
+    $attempt = 0
+    $success = $false
+    while ($attempt -le $MaxRetries -and -not $success) {
+        $success = Remove-SafePath -LiteralPath $LiteralPath -Recurse:$Recurse
+        if (-not $success -and $attempt -lt $MaxRetries) {
+            Start-Sleep -Milliseconds 500
+        }
+        $attempt++
+    }
+    return $success
+}
+
 function Clear-SafeDirectoryContents {
     param([string]$LiteralPath)
     if (Test-SkipCleanPath $LiteralPath) { return }
@@ -33,9 +71,9 @@ function Clear-SafeDirectoryContents {
         try { $child.Attributes = 'Normal' } catch {}
         if ($child.PSIsContainer) {
             Clear-SafeDirectoryContents -LiteralPath $child.FullName
-            Remove-Item -LiteralPath $child.FullName -Force -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+            Remove-SafePathWithRetry -LiteralPath $child.FullName -Recurse | Out-Null
         } else {
-            Remove-Item -LiteralPath $child.FullName -Force -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+            Remove-SafePathWithRetry -LiteralPath $child.FullName | Out-Null
         }
     }
 }
@@ -66,7 +104,7 @@ function Clear-SafeTempTree {
     $root = [System.Environment]::ExpandEnvironmentVariables($RootPath)
     if (-not (Test-Path $root)) { return }
     foreach ($child in @(Get-ChildItem $root -Force -ErrorAction SilentlyContinue)) {
-        Remove-SafePath -LiteralPath $child.FullName -Recurse | Out-Null
+        Remove-SafePathWithRetry -LiteralPath $child.FullName -Recurse | Out-Null
     }
 }
 
@@ -142,7 +180,7 @@ function Clear-AppDataJunkSweep {
                 $child = $_.FullName
                 if (Test-SkipCleanPath $child) { return }
                 if (Test-JunkDirName $_.Name) {
-                    if (Remove-SafePath -LiteralPath $child -Recurse) { $cleared++ }
+                    if (Remove-SafePathWithRetry -LiteralPath $child -Recurse) { $cleared++ }
                 } elseif ($cur.Depth -lt 3) {
                     $stack.Push(@{ Path = $child; Depth = $cur.Depth + 1 })
                 }
@@ -157,7 +195,7 @@ function Remove-CleanPaths {
     param([string[]]$Paths)
     foreach ($p in $Paths) {
         $exp = [System.Environment]::ExpandEnvironmentVariables($p)
-        Remove-SafePath -LiteralPath $exp -Recurse | Out-Null
+        Remove-SafePathWithRetry -LiteralPath $exp -Recurse | Out-Null
     }
 }
 
@@ -308,10 +346,10 @@ function Clear-ChromiumBrowserCache {
     Get-ChildItem $base -Directory -ErrorAction SilentlyContinue | ForEach-Object {
         $profile = $_.FullName
         foreach ($d in $script:ChromiumCleanDirs) {
-            Remove-SafePath -LiteralPath (Join-Path $profile $d) -Recurse | Out-Null
+            Remove-SafePathWithRetry -LiteralPath (Join-Path $profile $d) -Recurse | Out-Null
         }
         foreach ($f in $script:ChromiumCleanFiles) {
-            Remove-SafePath -LiteralPath (Join-Path $profile $f) | Out-Null
+            Remove-SafePathWithRetry -LiteralPath (Join-Path $profile $f) | Out-Null
         }
         # Login Data + Login Data For Account intentionally SKIPPED (passwords safe)
     }
@@ -323,10 +361,10 @@ function Clear-GeckoBrowserProfiles {
     Get-ChildItem $ProfilesPath -Directory -ErrorAction SilentlyContinue | ForEach-Object {
         $p = $_.FullName
         foreach ($d in $script:GeckoCleanDirs) {
-            Remove-SafePath -LiteralPath (Join-Path $p $d) -Recurse | Out-Null
+            Remove-SafePathWithRetry -LiteralPath (Join-Path $p $d) -Recurse | Out-Null
         }
         foreach ($f in $script:GeckoCleanFiles) {
-            Remove-SafePath -LiteralPath (Join-Path $p $f) | Out-Null
+            Remove-SafePathWithRetry -LiteralPath (Join-Path $p $f) | Out-Null
         }
         # key4.db (saved passwords) intentionally SKIPPED
     }
@@ -338,6 +376,9 @@ function Clear-FirefoxProfiles {
 
 function Clear-AllInstalledBrowsers {
     param([scriptblock]$Log = { param([string]$Message) })
+
+    & $Log "  Closing browser processes (to unlock files)..."
+    Close-BrowserProcesses -Log $Log
 
     & $Log "  Scanning PC for all installed browsers..."
     $chromiumRoots = Find-ChromiumBrowserRoots
@@ -374,8 +415,8 @@ function Clear-StoreAppTemp {
     Get-ChildItem $pkgs -Directory -ErrorAction SilentlyContinue | ForEach-Object {
         $at = Join-Path $_.FullName "AC\Temp"
         $cn = Join-Path $_.FullName "AC\Microsoft\CryptnetUrlCache"
-        if (Test-Path $at) { Remove-SafePath -LiteralPath $at -Recurse | Out-Null }
-        if (Test-Path $cn) { Remove-SafePath -LiteralPath $cn -Recurse | Out-Null }
+        if (Test-Path $at) { Remove-SafePathWithRetry -LiteralPath $at -Recurse | Out-Null }
+        if (Test-Path $cn) { Remove-SafePathWithRetry -LiteralPath $cn -Recurse | Out-Null }
     }
 }
 
@@ -404,12 +445,12 @@ function Invoke-MyCleanPCCore {
 
     & $Log "-- STEP 3: Prefetch and Recent Files --"
     foreach ($pf in @(Get-ChildItem "C:\Windows\Prefetch" -Filter "*.pf" -ErrorAction SilentlyContinue)) {
-        Remove-SafePath -LiteralPath $pf.FullName | Out-Null
+        Remove-SafePathWithRetry -LiteralPath $pf.FullName | Out-Null
     }
     $recentPath = [System.Environment]::ExpandEnvironmentVariables("%APPDATA%\Microsoft\Windows\Recent")
     $historyPath = [System.Environment]::ExpandEnvironmentVariables("%LOCALAPPDATA%\Microsoft\Windows\History")
     if (Test-Path $recentPath) { Clear-SafeTempTree $recentPath }
-    Remove-SafePath -LiteralPath $historyPath -Recurse | Out-Null
+    Remove-SafePathWithRetry -LiteralPath $historyPath -Recurse | Out-Null
     & $Log "  [Prefetch / Recent] cleared."
 
     & $Log "-- STEP 4: Temporary Files + Rigorous AppData --"
@@ -451,16 +492,16 @@ function Invoke-MyCleanPCCore {
     & $Log "  [Store app temp] cleared."
 
     $inetCache = [System.Environment]::ExpandEnvironmentVariables("%LOCALAPPDATA%\Microsoft\Windows\INetCache")
-    Remove-SafePath -LiteralPath $inetCache -Recurse | Out-Null
+    Remove-SafePathWithRetry -LiteralPath $inetCache -Recurse | Out-Null
     & $Log "  [INetCache] cleared."
 
     $explorerCache = [System.Environment]::ExpandEnvironmentVariables("%LOCALAPPDATA%\Microsoft\Windows\Explorer")
     if (Test-Path $explorerCache) {
         foreach ($thumb in @(Get-ChildItem $explorerCache -Filter "thumbcache_*.db" -ErrorAction SilentlyContinue)) {
-            Remove-SafePath -LiteralPath $thumb.FullName | Out-Null
+            Remove-SafePathWithRetry -LiteralPath $thumb.FullName | Out-Null
         }
         foreach ($icon in @(Get-ChildItem $explorerCache -Filter "iconcache_*.db" -ErrorAction SilentlyContinue)) {
-            Remove-SafePath -LiteralPath $icon.FullName | Out-Null
+            Remove-SafePathWithRetry -LiteralPath $icon.FullName | Out-Null
         }
     }
     & $Log "  [Thumbnail / Icon cache] cleared."
