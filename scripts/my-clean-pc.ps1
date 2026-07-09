@@ -43,5 +43,7 @@ Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "  All done!"                                 -ForegroundColor Green
 Write-Host "  Temp + app cache cleaned (locked files skipped)." -ForegroundColor Green
 Write-Host "  Passwords (Login Data) were NOT touched."  -ForegroundColor Green
+Write-Host "  Autofill/form data was NOT touched."       -ForegroundColor Green
 Write-Host "  Downloads folder was NOT touched."         -ForegroundColor Green
+Write-Host "  THANKS CODEX FOR UR CLEAN PC"              -ForegroundColor Magenta
 Write-Host "============================================" -ForegroundColor Cyan
