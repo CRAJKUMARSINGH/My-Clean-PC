@@ -1,4 +1,4 @@
-# My Clean PC - Beautiful GUI Launcher
+﻿# My Clean PC - Beautiful GUI Launcher
 # Designed for Priyanka - NO command prompt window!
 # How to run: right-click this file -> "Run with PowerShell"
 # For best results: right-click -> "Run as Administrator"
@@ -21,9 +21,9 @@ if (-not $isAdmin) {
     )
 }
 
-# ════════════════════════════════════════════════════
+# ====================================================
 #  PROMPT-FREE CLEANING HELPERS (Matches clean-pc-core.ps1)
-# ════════════════════════════════════════════════════
+# ====================================================
 $script:SkipPathFragments = @(
     "\Login Data", "\Login Data For Account", "\key4.db", "\formhistory.sqlite",
     "\Web Data", "\Web Data-journal", "\Autofill", "\Downloads", "\MyCleanPC",
@@ -357,9 +357,9 @@ function Clear-AppDataJunkSweep {
     return $cleared
 }
 
-# ════════════════════════════════════════════════════
+# ====================================================
 #  WINDOW SETUP
-# ════════════════════════════════════════════════════
+# ====================================================
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "My Clean PC - For Priyanka"
 $form.ClientSize    = New-Object System.Drawing.Size(520, 640)
@@ -459,9 +459,9 @@ $btnClose.SetBounds(334, 568, 170, 48)
 $form.Controls.Add($btnClose)
 $btnClose.Add_Click({ $form.Close() })
 
-# ════════════════════════════════════════════════════
+# ====================================================
 #  HELPER FUNCTIONS
-# ════════════════════════════════════════════════════
+# ====================================================
 function WriteLog {
     param([string]$Text, [string]$Level = "info")
     $rtb.SelectionStart  = $rtb.TextLength
@@ -631,9 +631,9 @@ function CleanBrowser {
     }
 }
 
-# ════════════════════════════════════════════════════
+# ====================================================
 #  START BUTTON CLICK HANDLER
-# ════════════════════════════════════════════════════
+# ====================================================
 $btnStart.Add_Click({
     $btnStart.Enabled   = $false
     $btnStart.Text      = "  Cleaning in progress..."
@@ -671,11 +671,11 @@ $btnStart.Add_Click({
     }
 
     if (-not $ranCore) {
-        # ─── STEP 1: AI App Caches ───
+        # --- STEP 1: AI App Caches ---
         WriteLog "============================================" "head"
         WriteLog "  STEP 1 of 6 - AI App Caches" "head"
         WriteLog "============================================" "head"
-        Tick 2 "Step 1 of 6 — Cleaning AI app caches..."
+        Tick 2 "Step 1 of 6 - Cleaning AI app caches..."
         CleanPaths "Cursor"      @("%APPDATA%\Cursor\Cache","%APPDATA%\Cursor\CachedData","%APPDATA%\Cursor\logs","%LOCALAPPDATA%\cursor-updater")
         CleanPaths "Kiro"        @("%APPDATA%\kiro\Cache","%APPDATA%\kiro\CachedData","%LOCALAPPDATA%\kiro")
         CleanPaths "Windsurf"    @("%APPDATA%\Windsurf\Cache","%APPDATA%\Windsurf\CachedData","%APPDATA%\Windsurf\logs","%LOCALAPPDATA%\Windsurf")
@@ -685,9 +685,9 @@ $btnStart.Add_Click({
         CleanPaths "Genspark"    @("%APPDATA%\Genspark","%LOCALAPPDATA%\Genspark")
         CleanPaths "Antigravity" @("%APPDATA%\Antigravity","%LOCALAPPDATA%\Antigravity")
         CleanPaths "Qoder"       @("%APPDATA%\Qoder","%LOCALAPPDATA%\Qoder")
-        Tick 14 "AI app caches — done."
+        Tick 14 "AI app caches - done."
 
-        # ─── STEP 2: Browsers ───
+        # --- STEP 2: Browsers ---
         WriteLog "" "info"
         WriteLog "============================================" "head"
         WriteLog "  STEP 2 of 6 - Browser Cache + History" "head"
@@ -729,15 +729,15 @@ $btnStart.Add_Click({
             }
             WriteLog "    OK  Done! ($n items)  Bookmarks & passwords NOT touched." "ok"
         } else { WriteLog "    -- Firefox not installed, skipping." "skip" }
-        Tick 50 "All browsers — done."
+        Tick 50 "All browsers - done."
 
-        # ─── STEP 3: Prefetch ───
+        # --- STEP 3: Prefetch ---
         WriteLog "" "info"
         WriteLog "============================================" "head"
         WriteLog "  STEP 3 of 6 - Prefetch Only" "head"
         WriteLog "  (Quick Access `& Recent files are left untouched)" "skip"
         WriteLog "============================================" "head"
-        Tick 52 "Step 3 of 6 — Clearing prefetch files..."
+        Tick 52 "Step 3 of 6 - Clearing prefetch files..."
         Get-ChildItem "C:\Windows\Prefetch" -Filter "*.pf" -ErrorAction SilentlyContinue | ForEach-Object {
             Remove-SafePathWithRetry -LiteralPath $_.FullName | Out-Null
         }
@@ -745,13 +745,13 @@ $btnStart.Add_Click({
         WriteLog "  OK  Recent activity, Quick Access, and History were not touched." "ok"
         Tick 57 "Prefetch done."
 
-        # ─── STEP 4: Temp Files + Rigorous AppData ───
+        # --- STEP 4: Temp Files + Rigorous AppData ---
         WriteLog "" "info"
         WriteLog "============================================" "head"
         WriteLog "  STEP 4 of 6 - Temporary Files + Rigorous AppData" "head"
         WriteLog "  (Errors here are normal - busy files skip)" "skip"
         WriteLog "============================================" "head"
-        Tick 60 "Step 4 of 6 — Rigorous temp + AppData sweep..."
+        Tick 60 "Step 4 of 6 - Rigorous temp + AppData sweep..."
         
         $tmp = [System.Environment]::ExpandEnvironmentVariables("%TEMP%")
         if (Test-Path $tmp) {
@@ -769,20 +769,20 @@ $btnStart.Add_Click({
         }
         
         Clear-RigorousTempLocations
-        WriteLog "  OK  Rigorous local temp — all locations cleared." "ok"
+        WriteLog "  OK  Rigorous local temp - all locations cleared." "ok"
         
-        $localCount = Clear-AppDataJunkSweep "Local AppData — all apps" "%LOCALAPPDATA%"
-        $roamCount = Clear-AppDataJunkSweep "Roaming AppData — all apps" "%APPDATA%"
+        $localCount = Clear-AppDataJunkSweep "Local AppData - all apps" "%LOCALAPPDATA%"
+        $roamCount = Clear-AppDataJunkSweep "Roaming AppData - all apps" "%APPDATA%"
         WriteLog "  OK  AppData junk cleared ($localCount local + $roamCount roaming folders)." "ok"
         
-        Tick 68 "Rigorous temp + AppData — done."
+        Tick 68 "Rigorous temp + AppData - done."
 
-        # ─── STEP 5: Recycle Bin + Update Cache ───
+        # --- STEP 5: Recycle Bin + Update Cache ---
         WriteLog "" "info"
         WriteLog "============================================" "head"
         WriteLog "  STEP 5 of 6 - Recycle Bin + Update Cache" "head"
         WriteLog "============================================" "head"
-        Tick 70 "Step 5 of 6 — Emptying Recycle Bin..."
+        Tick 70 "Step 5 of 6 - Emptying Recycle Bin..."
         if (-not ('RecycleBinNative' -as [type])) {
             Add-Type @"
 using System;
@@ -832,14 +832,14 @@ public static class RecycleBinNative {
             Get-ChildItem $expCache -Filter "iconcache_*.db"  -ErrorAction SilentlyContinue | ForEach-Object { Remove-SafePathWithRetry -LiteralPath $_.FullName | Out-Null }
         }
         WriteLog "  OK  Thumbnail/icon cache cleared.  (Icons may blink briefly - that is normal!)" "ok"
-        Tick 82 "Recycle Bin and caches — done."
+        Tick 82 "Recycle Bin and caches - done."
 
-        # ─── STEP 6: DNS + Event Logs ───
+        # --- STEP 6: DNS + Event Logs ---
         WriteLog "" "info"
         WriteLog "============================================" "head"
         WriteLog "  STEP 6 of 6 - Event Logs + DNS Cache" "head"
         WriteLog "============================================" "head"
-        Tick 85 "Step 6 of 6 — Clearing event logs and DNS cache..."
+        Tick 85 "Step 6 of 6 - Clearing event logs and DNS cache..."
         wevtutil cl Application 2>$null; WriteLog "  OK  Application event log cleared." "ok"
         wevtutil cl System      2>$null; WriteLog "  OK  System event log cleared."      "ok"
         wevtutil cl Security    2>$null; WriteLog "  OK  Security event log cleared."    "ok"
@@ -848,7 +848,7 @@ public static class RecycleBinNative {
         Tick 100 "All done!"
     }
 
-    # ─── DONE! ───
+    # --- DONE! ---
     WriteLog "" "info"
     WriteLog "============================================" "done"
     WriteLog "   ALL DONE, Priyanka! Your PC is cleaner!" "done"
@@ -887,9 +887,9 @@ public static class RecycleBinNative {
     ) | Out-Null
 })
 
-# ════════════════════════════════════════════════════
+# ====================================================
 #  SHOW THE WINDOW
-# ════════════════════════════════════════════════════
+# ====================================================
 $form.Add_Shown({ $form.Activate(); $btnStart.Focus() })
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::Run($form)

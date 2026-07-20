@@ -1,9 +1,9 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 $packageName = 'my-clean-pc'
 $toolsDir    = Split-Path -Parent $MyInvocation.MyCommand.Definition
 
-# ── Download the portable exe from the matching GitHub Release ──────────────
+# -- Download the portable exe from the matching GitHub Release --------------
 $version = $env:ChocolateyPackageVersion
 $url     = "https://github.com/CRAJKUMARSINGH/My-Clean-PC/releases/download/v$version/MyCleanPC-Portable.exe"
 

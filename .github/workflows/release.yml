@@ -1,4 +1,4 @@
-name: Release
+﻿name: Release
 
 # Triggers on any tag that looks like a version: v1.0.0, v1.2.3-beta, etc.
 on:
@@ -7,10 +7,12 @@ on:
       - "v*.*.*"
 
 jobs:
-  # ── Job 1: Portable .exe via PS2EXE ──────────────────────────────────────
+  # -- Job 1: Portable .exe via PS2EXE --------------------------------------
   build-portable:
     name: Build Portable EXE (PS2EXE)
     runs-on: windows-latest
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -33,17 +35,19 @@ jobs:
             dist/MyCleanPC-Portable.exe
             dist/MyCleanPC-Portable.exe.sha256
 
-  # ── Job 2: Electron NSIS installer ───────────────────────────────────────
+  # -- Job 2: Electron NSIS installer ---------------------------------------
   build-installer:
     name: Build Electron Installer (NSIS)
     runs-on: windows-latest
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: electron/package.json
 
@@ -72,7 +76,7 @@ jobs:
             dist-electron/*Setup*.exe
             dist-electron/*Setup*.exe.sha256
 
-  # ── Job 3: Create GitHub Release with both assets ─────────────────────────
+  # -- Job 3: Create GitHub Release with both assets -------------------------
   create-release:
     name: Create GitHub Release
     needs: [build-portable, build-installer]
@@ -106,8 +110,8 @@ jobs:
 
             | File | Description |
             |------|-------------|
-            | `MyCleanPC-Setup-x64.exe` | **Recommended** — NSIS installer with Start Menu / Desktop shortcut |
-            | `MyCleanPC-Portable.exe` | Portable single-file exe — run anywhere, no install needed |
+            | `MyCleanPC-Setup-x64.exe` | **Recommended** - NSIS installer with Start Menu / Desktop shortcut |
+            | `MyCleanPC-Portable.exe` | Portable single-file exe - run anywhere, no install needed |
 
             ### What's included
             - Silent, prompt-free Windows cache cleaner

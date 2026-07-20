@@ -1,4 +1,4 @@
-# My Clean PC - Windows Cache Cleaner (PowerShell)
+﻿# My Clean PC - Windows Cache Cleaner (PowerShell)
 # Designed for Priyanka
 # Requires clean-pc-core.ps1 in the same folder.
 # Run: PowerShell -ExecutionPolicy Bypass -File my-clean-pc.ps1
@@ -30,7 +30,7 @@ $script:SpaceFreedLine = $null
 function Write-CleanLog {
     param([string]$Message)
 
-    # Machine-readable sentinels — captured silently, not printed
+    # Machine-readable sentinels - captured silently, not printed
     if ($Message -match '^PRESCAN_ESTIMATE:') {
         $script:EstimateStr = $Message -replace '^PRESCAN_ESTIMATE:', ''
         return

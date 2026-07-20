@@ -1,4 +1,4 @@
-# My Clean PC - shared cleaning core (single source of truth)
+﻿# My Clean PC - shared cleaning core (single source of truth)
 # Dot-source from my-clean-pc.ps1, cleanup_task.ps1, etc.
 # Passwords (Login Data, key4.db), autofill data, Downloads, and Quick Access pins are NEVER touched.
 
@@ -28,7 +28,7 @@ function Format-ByteSize {
 }
 
 # Reads available free bytes on the given drive letter (e.g. "C:" or "C:\").
-# Uses DriveInfo — no shell, no WMI, instant.
+# Uses DriveInfo - no shell, no WMI, instant.
 function Get-DriveFreeBytes {
     param([string]$Drive = $env:SystemDrive)
     try {
@@ -41,7 +41,7 @@ function Get-DriveFreeBytes {
     return [long]0
 }
 
-# Fast recursive file-size sum via .NET enumeration — no shell, no dialog.
+# Fast recursive file-size sum via .NET enumeration - no shell, no dialog.
 # Used to estimate how much a path contributes before it is deleted.
 function Measure-PathSizeBytes {
     param([string]$LiteralPath)
@@ -145,7 +145,7 @@ function Format-ByteComparison {
     $video  = [Math]::Round($Bytes / 50MB)    # HD Netflix ~50 MB/min
     $emails = [Math]::Round($Bytes / 0.3MB)   # avg email with attachment
 
-    # Pick whichever gives the most satisfying number (50–9,999 range)
+    # Pick whichever gives the most satisfying number (50-9,999 range)
     if ($songs  -in 50..9999) { return "That's like $("{0:N0}" -f $songs) MP3 songs" }
     if ($photos -in 50..9999) { return "That's like $("{0:N0}" -f $photos) holiday photos" }
     if ($video  -in 5..999)   { return "That's like $("{0:N0}" -f $video) minutes of HD video" }
@@ -213,7 +213,7 @@ function Get-CleanerStagingRoot {
     return ([System.IO.Path]::GetTempPath())
 }
 
-# cmd.exe rd/del — never invokes Explorer "do this for all" shell UI
+# cmd.exe rd/del - never invokes Explorer "do this for all" shell UI
 function Invoke-ProcessAnswerAll {
     param(
         [Parameter(Mandatory)][string]$FilePath,
@@ -286,7 +286,7 @@ function Register-DeleteOnReboot {
     } catch {}
 }
 
-# Kernel-level delete — never routes through Explorer shell (no "do this for all" dialogs)
+# Kernel-level delete - never routes through Explorer shell (no "do this for all" dialogs)
 function Remove-PathViaDotNet {
     param(
         [Parameter(Mandatory)][string]$LiteralPath,
@@ -329,7 +329,7 @@ function Remove-PathViaDotNet {
 }
 
 # Robocopy mirror-from-empty: bulk-clears directory CONTENTS with zero UI prompts.
-# Locked files are silently skipped by robocopy — no Explorer dialog ever appears.
+# Locked files are silently skipped by robocopy - no Explorer dialog ever appears.
 function Clear-DirectoryViaRobocopy {
     param([string]$TargetPath)
     if (-not (Test-Path $TargetPath)) { return 0 }
@@ -370,14 +370,14 @@ function Clear-DirectoryViaRobocopy {
 }
 
 # -----------------------------------------------------------------------
-# Remove-DirectorySilent — the right way to delete an entire directory.
+# Remove-DirectorySilent - the right way to delete an entire directory.
 #
 # THREE-STAGE SILENT DELETE. Zero Explorer "Do this for all items" dialogs:
-#   Stage 1 — Robocopy /MIR from an empty folder wipes all contents.
+#   Stage 1 - Robocopy /MIR from an empty folder wipes all contents.
 #              Robocopy skips locked files silently; no Shell involvement.
-#   Stage 2 — cmd "rd /s /q" removes the now-empty (or near-empty) shell.
+#   Stage 2 - cmd "rd /s /q" removes the now-empty (or near-empty) shell.
 #              Runs as a hidden process; never touches the Explorer shell.
-#   Stage 3 — MoveFileEx DELAY_UNTIL_REBOOT registers any still-locked
+#   Stage 3 - MoveFileEx DELAY_UNTIL_REBOOT registers any still-locked
 #              remnant for silent deletion at next Windows boot.
 # -----------------------------------------------------------------------
 function Remove-DirectorySilent {
@@ -385,7 +385,7 @@ function Remove-DirectorySilent {
     if (Test-SkipCleanPath $LiteralPath) { return $false }
     if (-not (Test-Path -LiteralPath $LiteralPath -PathType Container)) { return $false }
 
-    # Stage 1: Robocopy wipe — zero Explorer dialogs, locked files silently skipped
+    # Stage 1: Robocopy wipe - zero Explorer dialogs, locked files silently skipped
     Clear-DirectoryViaRobocopy $LiteralPath | Out-Null
 
     # Stage 2: Remove the (now mostly/fully empty) directory shell via cmd
@@ -476,18 +476,18 @@ function Clear-SafeTempTree {
     # Combined del /f /s /q  +  Robocopy /MIR approach for Temp folders.
     #
     # Why two passes?
-    #   Pass 1  — cmd "del /f /s /q path\*"
+    #   Pass 1  - cmd "del /f /s /q path\*"
     #             Kills every unlocked file instantly (force, recurse, quiet).
     #             /f bypasses read-only; /s recurses subdirs; /q no confirmation.
-    #             Completely bypasses the Explorer shell — zero dialogs.
+    #             Completely bypasses the Explorer shell - zero dialogs.
     #             Locked files are silently skipped by cmd.exe (no dialog).
     #
-    #   Pass 2  — Robocopy /MIR from an empty staging folder
+    #   Pass 2  - Robocopy /MIR from an empty staging folder
     #             Wipes the remaining directory skeleton and any files
     #             that del couldn't reach (deep paths, unusual attributes).
     #             Also silent and dialog-free. Locked items are skipped.
     #
-    #   Pass 3  — MoveFileEx DELAY_UNTIL_REBOOT
+    #   Pass 3  - MoveFileEx DELAY_UNTIL_REBOOT
     #             Anything still present (genuinely locked by another process)
     #             is registered for silent deletion at the next Windows boot.
     param([string]$RootPath)
@@ -496,11 +496,11 @@ function Clear-SafeTempTree {
     $key = ([System.IO.Path]::GetFullPath($root)).TrimEnd('\').ToLowerInvariant()
     if ($script:ProcessedTempRoots.ContainsKey($key)) { return $script:ProcessedTempRoots[$key] }
 
-    # Pass 1: del /f /s /q — fast file-kill, no Explorer shell, no dialogs
+    # Pass 1: del /f /s /q - fast file-kill, no Explorer shell, no dialogs
     $null = Invoke-ProcessAnswerAll -FilePath 'cmd.exe' `
         -ArgumentList @('/c', "del /f /s /q `"$root\*`"")
 
-    # Pass 2: Robocopy /MIR — wipe remaining dirs and any files del skipped
+    # Pass 2: Robocopy /MIR - wipe remaining dirs and any files del skipped
     $removed = Clear-DirectoryViaRobocopy $root
 
     # Pass 3: register any still-locked stragglers for next-boot deletion
@@ -585,7 +585,7 @@ function Clear-AppDataJunkSweep {
                 $child = $_.FullName
                 if (Test-SkipCleanPath $child) { return }
                 if (Test-JunkDirName $_.Name) {
-                    # FIX: use Remove-DirectorySilent — robocopy wipe first,
+                    # FIX: use Remove-DirectorySilent - robocopy wipe first,
                     # then cmd rd, then MoveFileEx reboot-delete fallback.
                     # Never routes through Explorer shell; zero "do this for all" dialogs.
                     if (Remove-DirectorySilent -LiteralPath $child) { $cleared++ }
@@ -622,7 +622,7 @@ function Clear-RoamingAppCachesAllApps {
         foreach ($child in @(Get-ChildItem $cur.Path -Directory -ErrorAction SilentlyContinue)) {
             if (Test-SkipCleanPath $child.FullName) { continue }
             if ($cacheNames -icontains $child.Name) {
-                # FIX: use Remove-DirectorySilent — robocopy wipe first,
+                # FIX: use Remove-DirectorySilent - robocopy wipe first,
                 # then cmd rd, then MoveFileEx reboot-delete fallback.
                 # Never routes through Explorer shell; zero "do this for all" dialogs.
                 if (Remove-DirectorySilent -LiteralPath $child.FullName) { $cleared++ }
@@ -640,9 +640,9 @@ function Clear-RoamingAppCachesAllApps {
 
 function Remove-CleanPaths {
     # Universal silent delete for all explicit paths.
-    # Directories  → Remove-DirectorySilent (del /f/s/q → robocopy /MIR → reboot-delete).
+    # Directories  -> Remove-DirectorySilent (del /f/s/q -> robocopy /MIR -> reboot-delete).
     #                Zero Explorer "Do this for all items" dialogs regardless of path.
-    # Files        → Remove-SafePathWithRetry (.NET delete → cmd del → reboot-delete).
+    # Files        -> Remove-SafePathWithRetry (.NET delete -> cmd del -> reboot-delete).
     param([string[]]$Paths)
     foreach ($p in $Paths) {
         $exp = [System.Environment]::ExpandEnvironmentVariables($p)
@@ -800,7 +800,7 @@ function Clear-ChromiumBrowserCache {
         foreach ($d in $script:ChromiumCleanDirs) {
             $target = Join-Path $profile $d
             if (Test-Path -LiteralPath $target -PathType Container) {
-                # FIX: robocopy wipe first — zero Explorer dialogs for locked browser cache files
+                # FIX: robocopy wipe first - zero Explorer dialogs for locked browser cache files
                 Remove-DirectorySilent -LiteralPath $target | Out-Null
             } elseif (Test-Path -LiteralPath $target) {
                 Remove-SafePathWithRetry -LiteralPath $target | Out-Null
@@ -821,7 +821,7 @@ function Clear-GeckoBrowserProfiles {
         foreach ($d in $script:GeckoCleanDirs) {
             $target = Join-Path $p $d
             if (Test-Path -LiteralPath $target -PathType Container) {
-                # FIX: robocopy wipe first — zero Explorer dialogs for locked Firefox cache files
+                # FIX: robocopy wipe first - zero Explorer dialogs for locked Firefox cache files
                 Remove-DirectorySilent -LiteralPath $target | Out-Null
             } elseif (Test-Path -LiteralPath $target) {
                 Remove-SafePathWithRetry -LiteralPath $target | Out-Null
@@ -880,7 +880,7 @@ function Clear-StoreAppTemp {
     Get-ChildItem $pkgs -Directory -ErrorAction SilentlyContinue | ForEach-Object {
         $at = Join-Path $_.FullName "AC\Temp"
         $cn = Join-Path $_.FullName "AC\Microsoft\CryptnetUrlCache"
-        # FIX: use Remove-DirectorySilent — robocopy wipe, then cmd rd, then reboot-delete fallback
+        # FIX: use Remove-DirectorySilent - robocopy wipe, then cmd rd, then reboot-delete fallback
         if (Test-Path $at) { Remove-DirectorySilent -LiteralPath $at | Out-Null }
         if (Test-Path $cn) { Remove-DirectorySilent -LiteralPath $cn | Out-Null }
     }
@@ -966,7 +966,7 @@ function Invoke-MyCleanPCCore {
     $sysDrive    = $env:SystemDrive
     $freeAtStart = Get-DriveFreeBytes $sysDrive
 
-    # ── PRE-SCAN ────────────────────────────────────────────────────────────
+    # -- PRE-SCAN ------------------------------------------------------------
     # Read-only size measurement of everything that will be cleaned.
     # Gives the user a "you're about to free ~X GB" preview before we start.
     & $Log "-- PRE-SCAN: measuring junk (read-only, nothing deleted yet) --"
