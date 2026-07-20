@@ -1,13 +1,15 @@
 ﻿name: Release
 
-# Triggers on any tag that looks like a version: v1.0.0, v1.2.3-beta, etc.
 on:
   push:
     tags:
       - "v*.*.*"
 
+permissions:
+  contents: read
+
 jobs:
-  # -- Job 1: Portable .exe via PS2EXE --------------------------------------
+  # ── Job 1: Portable .exe via PS2EXE ──────────────────────────────────────
   build-portable:
     name: Build Portable EXE (PS2EXE)
     runs-on: windows-latest
@@ -16,6 +18,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
 
       - name: Install PS2EXE
         shell: pwsh
@@ -25,7 +29,7 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ github.ref_name }}".TrimStart('v')
-          powershell -ExecutionPolicy Bypass -File build\Build-Exe.ps1 -Version $version
+          & .\build\Build-Exe.ps1 -Version $version
 
       - name: Upload portable exe artifact
         uses: actions/upload-artifact@v4
@@ -35,7 +39,7 @@ jobs:
             dist/MyCleanPC-Portable.exe
             dist/MyCleanPC-Portable.exe.sha256
 
-  # -- Job 2: Electron NSIS installer ---------------------------------------
+  # ── Job 2: Electron NSIS installer ───────────────────────────────────────
   build-installer:
     name: Build Electron Installer (NSIS)
     runs-on: windows-latest
@@ -44,6 +48,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
 
       - uses: actions/setup-node@v4
         with:
@@ -76,7 +82,7 @@ jobs:
             dist-electron/*Setup*.exe
             dist-electron/*Setup*.exe.sha256
 
-  # -- Job 3: Create GitHub Release with both assets -------------------------
+  # ── Job 3: Create GitHub Release with both assets ─────────────────────────
   create-release:
     name: Create GitHub Release
     needs: [build-portable, build-installer]
@@ -110,18 +116,16 @@ jobs:
 
             | File | Description |
             |------|-------------|
-            | `MyCleanPC-Setup-x64.exe` | **Recommended** - NSIS installer with Start Menu / Desktop shortcut |
+            | `MyCleanPC-Setup-x64.exe` | **Recommended** - NSIS installer with Start Menu shortcut |
             | `MyCleanPC-Portable.exe` | Portable single-file exe - run anywhere, no install needed |
 
             ### What's included
             - Silent, prompt-free Windows cache cleaner
             - Cleans temp folders, browser caches, AppData junk, Recycle Bin, DNS cache, event logs
-            - Passwords, autofill, bookmarks, Downloads, and Quick Access pins are **never** touched
-            - Locked files auto-skipped; remaining files registered for deletion at next reboot
-            - Shows **space freed** at the end of every run
+            - Passwords, autofill, bookmarks, Downloads never touched
+            - Shows space freed at the end of every run
 
             ### Verify integrity
-            Each download has a matching `.sha256` file. Verify with:
             ```powershell
             Get-FileHash MyCleanPC-Portable.exe -Algorithm SHA256
             ```
