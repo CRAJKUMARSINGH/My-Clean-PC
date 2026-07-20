@@ -9,8 +9,8 @@ $ProgressPreference = "SilentlyContinue"
 # Paths never deleted (passwords, autofill, Downloads, self-install folder, Quick Access / Explorer shell state)
 $script:SkipPathFragments = @(
     "\Login Data", "\Login Data For Account", "\key4.db", "\formhistory.sqlite",
-    "\Web Data", "\Web Data-journal", "\Autofill", "\Downloads", "\MyCleanPC\",
-    "\Microsoft\Windows\Recent\", "\Microsoft\Windows\History\",
+    "\Web Data", "\Web Data-journal", "\Autofill", "\Downloads", "\MyCleanPC",
+    "\Microsoft\Windows\Recent", "\Microsoft\Windows\History",
     "\Microsoft\Windows\Recent\AutomaticDestinations", "\Microsoft\Windows\Recent\CustomDestinations"
 )
 
@@ -26,8 +26,13 @@ $script:JunkDirNames = @(
 
 function Test-SkipCleanPath {
     param([string]$Path)
+    if ([string]::IsNullOrEmpty($Path)) { return $false }
+    $norm = $Path.Replace('/', '\').ToLowerInvariant()
     foreach ($frag in $script:SkipPathFragments) {
-        if ($Path -like "*$frag*") { return $true }
+        $normFrag = $frag.ToLowerInvariant()
+        if ($norm -eq $normFrag -or $norm -like "*$normFrag" -or $norm -like "*$normFrag\*") {
+            return $true
+        }
     }
     return $false
 }
@@ -189,44 +194,10 @@ function Remove-PathViaDotNet {
     }
 }
 
-# Robocopy mirror-from-empty: bulk-clears directories with zero UI prompts
+# Deprecated: Clear-DirectoryViaRobocopy is replaced by robust recursive .NET/CMD deletion.
 function Clear-DirectoryViaRobocopy {
     param([string]$TargetPath)
-    if (-not (Test-Path $TargetPath)) { return 0 }
-    $targetNorm = ([System.IO.Path]::GetFullPath($TargetPath)).TrimEnd('\') + '\'
-    $stagingRoot = Get-CleanerStagingRoot
-    $emptyDir = Join-Path $stagingRoot ("empty_" + [guid]::NewGuid().ToString('N'))
-    $removed = 0
-    try {
-        New-Item -ItemType Directory -Path $emptyDir -Force | Out-Null
-        if ($emptyDir.StartsWith($targetNorm, [StringComparison]::OrdinalIgnoreCase)) {
-            throw "Staging dir must not be inside target"
-        }
-        $before = @(Get-ChildItem $TargetPath -Force -ErrorAction SilentlyContinue).Count
-        foreach ($child in @(Get-ChildItem $TargetPath -Force -ErrorAction SilentlyContinue)) {
-            if (Test-SkipCleanPath $child.FullName) { continue }
-            if (Remove-SafePathWithRetry -LiteralPath $child.FullName -Recurse) {
-                $removed++
-            }
-        }
-        $null = & robocopy.exe $emptyDir $TargetPath /mir /r:0 /w:0 /nfl /ndl /njh /njs /nc /ns /np 2>&1
-        $after = @(Get-ChildItem $TargetPath -Force -ErrorAction SilentlyContinue).Count
-        $removed = [Math]::Max($removed, [Math]::Max(0, $before - $after))
-        if ($after -gt 0) {
-            foreach ($child in @(Get-ChildItem $TargetPath -Force -ErrorAction SilentlyContinue)) {
-                if (Remove-SafePathWithRetry -LiteralPath $child.FullName -Recurse) {
-                    $removed++
-                } elseif (Test-Path -LiteralPath $child.FullName) {
-                    Register-DeleteOnReboot -LiteralPath $child.FullName
-                }
-            }
-        }
-    } finally {
-        if (Test-Path $emptyDir) {
-            Remove-PathViaDotNet -LiteralPath $emptyDir -Recurse | Out-Null
-        }
-    }
-    return $removed
+    return 0
 }
 
 function Close-BrowserProcesses {
@@ -305,7 +276,20 @@ function Clear-SafeTempTree {
     if (-not (Test-Path $root)) { return 0 }
     $key = ([System.IO.Path]::GetFullPath($root)).TrimEnd('\').ToLowerInvariant()
     if ($script:ProcessedTempRoots.ContainsKey($key)) { return $script:ProcessedTempRoots[$key] }
-    $removed = Clear-DirectoryViaRobocopy $root
+    
+    $before = 0
+    try {
+        $before = @(Get-ChildItem -LiteralPath $root -Force -ErrorAction SilentlyContinue).Count
+    } catch {}
+    
+    Clear-SafeDirectoryContents -LiteralPath $root
+    
+    $after = 0
+    try {
+        $after = @(Get-ChildItem -LiteralPath $root -Force -ErrorAction SilentlyContinue).Count
+    } catch {}
+    
+    $removed = [Math]::Max(0, $before - $after)
     $script:ProcessedTempRoots[$key] = $removed
     return $removed
 }
@@ -728,7 +712,8 @@ function Invoke-CleanMgrSilent {
 function Invoke-MyCleanPCCore {
     param(
         [scriptblock]$Log = { param([string]$Message) Write-Host $Message },
-        [switch]$ManageWindowsUpdateService
+        [switch]$ManageWindowsUpdateService,
+        [switch]$ShowPopup
     )
 
     & $Log "-- STEP 1: AI App Caches --"
@@ -816,4 +801,21 @@ function Invoke-MyCleanPCCore {
     try { Clear-DnsClientCache -ErrorAction Stop } catch { ipconfig /flushdns | Out-Null }
     & $Log "  [DNS Cache] flushed."
     & $Log "THANKS CODEX FOR UR CLEAN PC"
+    & $Log "THANKS ANTIGRAVITY AT COMPLETION"
+
+    # Save last clean timestamp
+    try {
+        $lastCleanFile = "$env:LOCALAPPDATA\MyCleanPC\last_cleaned.txt"
+        $parentDir = Split-Path $lastCleanFile -Parent
+        if (-not (Test-Path $parentDir)) { New-Item -ItemType Directory -Path $parentDir -Force | Out-Null }
+        Get-Date -Format "yyyy-MM-dd HH:mm:ss" | Out-File $lastCleanFile -Force
+    } catch {}
+
+    # Non-silent message box prompt (only if requested and interactive)
+    if ($ShowPopup -and [Environment]::UserInteractive) {
+        try {
+            $wshell = New-Object -ComObject Wscript.Shell
+            $wshell.Popup("THANKS CODEX FOR UR CLEAN PC`nTHANKS ANTIGRAVITY AT COMPLETION", 0, "My Clean PC Cleaned", 64) | Out-Null
+        } catch {}
+    }
 }

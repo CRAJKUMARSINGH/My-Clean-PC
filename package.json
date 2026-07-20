@@ -1,17 +1,8 @@
 {
-  "name": "workspace",
-  "version": "0.0.0",
-  "license": "MIT",
   "scripts": {
-    "preinstall": "node -e \"const a=process.env.npm_config_user_agent||'';['package-lock.json','yarn.lock'].forEach(f=>{try{require('fs').unlinkSync(f)}catch(e){}});if(!a.startsWith('pnpm')){process.stderr.write('Use pnpm instead\\n');process.exit(1)}\"",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
-    "sync:cleaners": "node scripts/sync-cleaners.mjs",
-    "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "dev": "pnpm --filter ./artifacts/my-clean-pc dev"
   },
-  "private": true,
   "devDependencies": {
-    "prettier": "^3.8.4",
-    "typescript": "~5.9.3"
+    "lightningcss": "1.31.0"
   }
 }

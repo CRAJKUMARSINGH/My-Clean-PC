@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>my-clean-pc</id>
+    <version>1.0.0</version>
+    <packageSourceUrl>https://github.com/CRAJKUMARSINGH/My-Clean-PC</packageSourceUrl>
+    <owners>CRAJKUMARSINGH</owners>
+    <title>My Clean PC</title>
+    <authors>Rajkumar</authors>
+    <projectUrl>https://github.com/CRAJKUMARSINGH/My-Clean-PC</projectUrl>
+    <licenseUrl>https://github.com/CRAJKUMARSINGH/My-Clean-PC/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/CRAJKUMARSINGH/My-Clean-PC</projectSourceUrl>
+    <bugTrackerUrl>https://github.com/CRAJKUMARSINGH/My-Clean-PC/issues</bugTrackerUrl>
+    <tags>windows cleaner cache temp privacy performance</tags>
+    <summary>Silent, prompt-free Windows cache cleaner — passwords and Downloads never touched.</summary>
+    <description><![CDATA[
+## My Clean PC
+
+One-click Windows cache cleaner with **zero dialogs** and **zero prompts**.
+
+### What it cleans
+- Windows Temp folders (`%TEMP%`, `C:\Windows\Temp`)
+- LocalAppData and Roaming AppData junk / cache folders
+- Browser caches for all detected browsers (Chrome, Edge, Firefox, Brave, Vivaldi, …)
+- Windows Disk Cleanup (`C:` drive, downloads categories excluded)
+- Recycle Bin, Windows Update download cache, DNS cache, Event Logs
+
+### What it never touches
+- Passwords / Login Data
+- Autofill and form data
+- Bookmarks
+- Downloads folder
+- Quick Access pins
+
+### How it avoids dialogs
+Uses `del /f /s /q` + Robocopy `/MIR` for all directory wipes.  
+Locked files are silently skipped; any remaining locks are registered for silent deletion at next reboot.  
+The Explorer "Do this for all items" prompt is **never** shown.
+
+### Space-freed counter
+Displays how many GB/MB were reclaimed at the end of every run.
+    ]]></description>
+    <releaseNotes>https://github.com/CRAJKUMARSINGH/My-Clean-PC/releases</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

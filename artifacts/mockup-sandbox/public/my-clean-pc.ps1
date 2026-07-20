@@ -36,7 +36,7 @@ function Write-CleanLog {
     }
 }
 
-Invoke-MyCleanPCCore -Log { param([string]$Message) Write-CleanLog $Message }
+Invoke-MyCleanPCCore -Log { param([string]$Message) Write-CleanLog $Message } -ShowPopup
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
@@ -46,4 +46,15 @@ Write-Host "  Passwords (Login Data) were NOT touched."  -ForegroundColor Green
 Write-Host "  Autofill/form data was NOT touched."       -ForegroundColor Green
 Write-Host "  Downloads folder was NOT touched."         -ForegroundColor Green
 Write-Host "  THANKS CODEX FOR UR CLEAN PC"              -ForegroundColor Magenta
+Write-Host "  THANKS ANTIGRAVITY AT COMPLETION"          -ForegroundColor Magenta
 Write-Host "============================================" -ForegroundColor Cyan
+Write-Host ""
+
+if ($Host.Name -eq "ConsoleHost" -and [Environment]::UserInteractive -and -not (
+    [System.Console]::IsInputRedirected -or [System.Console]::IsOutputRedirected
+)) {
+    Write-Host "Press any key to exit..."
+    try {
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    } catch {}
+}

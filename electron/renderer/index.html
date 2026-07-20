@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>My Clean PC</title>
+<style>
+  :root {
+    --bg:      #0c0c18;
+    --surface: #14142a;
+    --border:  #252545;
+    --accent:  #7c6af7;
+    --teal:    #3dd9c0;
+    --text:    #e2e0ff;
+    --muted:   #6a6898;
+    --danger:  #f77c7c;
+    --warn:    #f0c674;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── Title bar ────────────────────────────────────────────────────── */
+  #titlebar {
+    height: 36px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    -webkit-app-region: drag;
+    flex-shrink: 0;
+  }
+  #titlebar .logo { font-size: 13px; font-weight: 700; color: var(--accent); }
+  #titlebar .ver  { font-size: 11px; color: var(--muted); margin-left: 8px; }
+  #titlebar .spacer { flex: 1; }
+  .tbtn {
+    -webkit-app-region: no-drag;
+    width: 28px; height: 28px; border: none; border-radius: 6px;
+    background: transparent; color: var(--muted); cursor: pointer;
+    font-size: 13px; display: flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s; margin-left: 4px;
+  }
+  .tbtn:hover         { background: var(--border); color: var(--text); }
+  .tbtn.x:hover       { background: var(--danger); color: #fff; }
+
+  /* ── Header ──────────────────────────────────────────────────────── */
+  #header {
+    padding: 18px 24px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #header h1      { font-size: 22px; font-weight: 800; letter-spacing: .3px; }
+  #header h1 em   { color: var(--accent); font-style: normal; }
+  #header p       { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+  /* ── Safety strip ─────────────────────────────────────────────────── */
+  #safety {
+    margin: 10px 20px 0;
+    background: #0f1f12;
+    border: 1px solid #1e3f22;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 11px;
+    color: #68c87a;
+    flex-shrink: 0;
+  }
+
+  /* ── Estimate card ──────────────────────────────────────────────── */
+  #estimate-card {
+    margin: 10px 20px 0;
+    background: linear-gradient(135deg, #1a1535 0%, #0f1a2a 100%);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 10px 16px;
+    display: none;
+    flex-shrink: 0;
+    transition: opacity .4s;
+  }
+  #estimate-card.visible { display: block; }
+  #estimate-card .ec-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--muted); margin-bottom: 2px;
+  }
+  #estimate-card .ec-value {
+    font-size: 24px; font-weight: 800; color: var(--accent);
+    letter-spacing: -.5px;
+  }
+  #estimate-card .ec-sub {
+    font-size: 11px; color: var(--muted); margin-top: 1px;
+  }
+  #estimate-card .ec-top {
+    margin-top: 8px; font-size: 11px; color: #8885c0;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    line-height: 1.7;
+    display: none;
+  }
+
+  /* ── Log terminal ─────────────────────────────────────────────────── */
+  #log-wrap {
+    flex: 1;
+    margin: 10px 20px;
+    background: #060610;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  #log-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 5px 12px;
+    font-size: 11px; color: var(--muted);
+    display: flex; align-items: center; gap: 7px;
+    flex-shrink: 0;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); transition: background .3s, box-shadow .3s; }
+  .dot.scan   { background: var(--warn);   box-shadow: 0 0 7px var(--warn); }
+  .dot.active { background: var(--teal);   box-shadow: 0 0 7px var(--teal); }
+  .dot.done   { background: #68c87a;       box-shadow: 0 0 7px #68c87a; }
+  #log {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 10px 14px;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 11.5px; line-height: 1.65; color: #7a78b0;
+  }
+  #log::-webkit-scrollbar       { width: 4px; }
+  #log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .l-step    { color: var(--accent); font-weight: 700; margin-top: 5px; }
+  .l-scan    { color: var(--warn); }
+  .l-ok      { color: var(--teal); }
+  .l-warn    { color: var(--warn); }
+  .l-muted   { color: #36365a; }
+  .l-freed   { color: #fff; font-weight: 700; font-size: 13px; margin-top: 4px; }
+  .l-cmp     { color: var(--teal); font-style: italic; }
+  .l-thanks  { color: var(--accent); font-weight: 700; }
+
+  /* ── Result banner ────────────────────────────────────────────────── */
+  #result-banner {
+    margin: 0 20px;
+    border-radius: 10px;
+    padding: 12px 20px;
+    display: none;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #0d2a1a 0%, #0a1a2a 100%);
+    border: 1px solid #2a6a4a;
+    align-items: center;
+    gap: 20px;
+  }
+  #result-banner.visible { display: flex; }
+  #result-banner.glow {
+    animation: resultGlow 2.5s ease-out;
+  }
+  @keyframes resultGlow {
+    0%   { border-color: var(--teal); box-shadow: 0 0 24px 4px rgba(61,217,192,.4); }
+    100% { border-color: #2a6a4a;     box-shadow: none; }
+  }
+  #freed-display { line-height: 1.1; }
+  #freed-label   { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: #4a9a6a; }
+  #freed-number  { font-size: 38px; font-weight: 900; color: var(--teal); letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+  #freed-unit    { font-size: 16px; font-weight: 700; color: var(--teal); vertical-align: super; margin-left: 2px; }
+  #freed-cmp     { font-size: 12px; color: #5a9a7a; font-style: italic; margin-top: 2px; }
+  .result-check  { font-size: 28px; flex-shrink: 0; }
+  .result-text   { flex: 1; font-size: 11px; color: #4a8a6a; line-height: 1.6; }
+
+  /* ── Footer ───────────────────────────────────────────────────────── */
+  #footer {
+    padding: 9px 20px 14px;
+    display: flex; align-items: center; gap: 12px;
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+  }
+  #status { flex: 1; font-size: 12px; color: var(--muted); }
+  #status.scan    { color: var(--warn); }
+  #status.running { color: var(--teal); }
+  #status.done    { color: #68c87a; }
+
+  #btn {
+    padding: 9px 30px; border: none; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent) 0%, #5a4fcf 100%);
+    color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;
+    transition: opacity .15s, transform .1s; letter-spacing: .3px;
+  }
+  #btn:hover:not(:disabled)  { opacity: .85; transform: translateY(-1px); }
+  #btn:active:not(:disabled) { transform: translateY(0); }
+  #btn:disabled { opacity: .3; cursor: default; }
+</style>
+</head>
+<body>
+
+<div id="titlebar">
+  <span class="logo">✦ My Clean PC</span>
+  <span class="ver">v1.0</span>
+  <div class="spacer"></div>
+  <button class="tbtn"   id="btn-min">&#x2212;</button>
+  <button class="tbtn x" id="btn-close">&#x2715;</button>
+</div>
+
+<div id="header">
+  <h1>My <em>Clean</em> PC</h1>
+  <p>Designed for Priyanka &nbsp;·&nbsp; Silent, prompt-free Windows cache cleaner</p>
+</div>
+
+<div id="safety">
+  🔒 &nbsp;<strong>Always safe:</strong>
+  &nbsp;passwords &amp; Login Data &nbsp;·&nbsp;
+  autofill / form data &nbsp;·&nbsp;
+  bookmarks &nbsp;·&nbsp;
+  Downloads &nbsp;·&nbsp;
+  Quick Access pins
+</div>
+
+<div id="estimate-card">
+  <div class="ec-label">Junk found (pre-scan)</div>
+  <div class="ec-value" id="ec-value">—</div>
+  <div class="ec-sub"   id="ec-sub"></div>
+</div>
+
+<div id="log-wrap">
+  <div id="log-bar">
+    <div class="dot" id="dot"></div>
+    <span id="log-label">Ready — press Clean Now to start</span>
+  </div>
+  <div id="log"></div>
+</div>
+
+<div id="result-banner">
+  <div class="result-check">✓</div>
+  <div id="freed-display">
+    <div id="freed-label">Space freed</div>
+    <div>
+      <span id="freed-number">0</span><span id="freed-unit"></span>
+    </div>
+    <div id="freed-cmp"></div>
+  </div>
+  <div class="result-text" id="result-text">
+    Passwords · autofill · bookmarks · Downloads left untouched.
+  </div>
+</div>
+
+<div id="footer">
+  <div id="status">Idle</div>
+  <button id="btn">Clean Now</button>
+</div>
+
+<script src="renderer.js"></script>
+</body>
+</html>

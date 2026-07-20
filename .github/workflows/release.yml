@@ -1,0 +1,128 @@
+name: Release
+
+# Triggers on any tag that looks like a version: v1.0.0, v1.2.3-beta, etc.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  # ── Job 1: Portable .exe via PS2EXE ──────────────────────────────────────
+  build-portable:
+    name: Build Portable EXE (PS2EXE)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PS2EXE
+        shell: pwsh
+        run: Install-Module ps2exe -Scope CurrentUser -Force -AllowClobber
+
+      - name: Build portable exe
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          powershell -ExecutionPolicy Bypass -File build\Build-Exe.ps1 -Version $version
+
+      - name: Upload portable exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: portable-exe
+          path: |
+            dist/MyCleanPC-Portable.exe
+            dist/MyCleanPC-Portable.exe.sha256
+
+  # ── Job 2: Electron NSIS installer ───────────────────────────────────────
+  build-installer:
+    name: Build Electron Installer (NSIS)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: electron/package.json
+
+      - name: Install Electron dependencies
+        working-directory: electron
+        run: npm install
+
+      - name: Build NSIS installer
+        working-directory: electron
+        run: npm run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute installer checksum
+        shell: pwsh
+        run: |
+          $file = Get-ChildItem dist-electron -Filter "*Setup*.exe" | Select-Object -First 1
+          $hash = (Get-FileHash $file.FullName -Algorithm SHA256).Hash
+          "$hash  $($file.Name)" | Set-Content "$($file.FullName).sha256"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-installer
+          path: |
+            dist-electron/*Setup*.exe
+            dist-electron/*Setup*.exe.sha256
+
+  # ── Job 3: Create GitHub Release with both assets ─────────────────────────
+  create-release:
+    name: Create GitHub Release
+    needs: [build-portable, build-installer]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download portable exe
+        uses: actions/download-artifact@v4
+        with:
+          name: portable-exe
+          path: release-assets
+
+      - name: Download installer
+        uses: actions/download-artifact@v4
+        with:
+          name: electron-installer
+          path: release-assets
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "My Clean PC ${{ github.ref_name }}"
+          body: |
+            ## My Clean PC ${{ github.ref_name }}
+
+            ### Downloads
+
+            | File | Description |
+            |------|-------------|
+            | `MyCleanPC-Setup-x64.exe` | **Recommended** — NSIS installer with Start Menu / Desktop shortcut |
+            | `MyCleanPC-Portable.exe` | Portable single-file exe — run anywhere, no install needed |
+
+            ### What's included
+            - Silent, prompt-free Windows cache cleaner
+            - Cleans temp folders, browser caches, AppData junk, Recycle Bin, DNS cache, event logs
+            - Passwords, autofill, bookmarks, Downloads, and Quick Access pins are **never** touched
+            - Locked files auto-skipped; remaining files registered for deletion at next reboot
+            - Shows **space freed** at the end of every run
+
+            ### Verify integrity
+            Each download has a matching `.sha256` file. Verify with:
+            ```powershell
+            Get-FileHash MyCleanPC-Portable.exe -Algorithm SHA256
+            ```
+          files: release-assets/**
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

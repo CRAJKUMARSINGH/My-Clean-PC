@@ -16,6 +16,8 @@ const pairs = [
   ["my-clean-pc.bat", "my-clean-pc.bat"],
   ["clean-pc-core.ps1", "clean-pc-core.ps1"],
   ["cleanup_task.ps1", "cleanup_task.ps1"],
+  ["My-Clean-PC-GUI.ps1", "My-Clean-PC-GUI.ps1"],
+  ["Launch-Clean-PC.bat", "Launch-Clean-PC.bat"],
 ];
 
 mkdirSync(publicDir, { recursive: true });

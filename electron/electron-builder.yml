@@ -1,0 +1,45 @@
+appId: com.rajkumar.mycleanpc
+productName: My Clean PC
+copyright: Copyright © 2026 Rajkumar
+
+directories:
+  output: ../dist-electron
+  buildResources: assets
+
+files:
+  - main.js
+  - preload.js
+  - renderer/**
+
+# Bundle the PowerShell scripts alongside the app
+extraResources:
+  - from: ../scripts
+    to: scripts
+    filter:
+      - "*.ps1"
+      - "*.bat"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: assets/icon.ico
+  # Request elevation — the cleaner needs admin rights for event logs / WU cache
+  requestedExecutionLevel: requireAdministrator
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: My Clean PC
+  installerIcon: assets/icon.ico
+  uninstallerIcon: assets/icon.ico
+  deleteAppDataOnUninstall: false
+
+# Portable single-file exe (no installer)
+# Uncomment to also produce a portable build alongside the installer:
+# - target: portable
+#   arch: [x64]
