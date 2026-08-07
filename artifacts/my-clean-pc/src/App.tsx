@@ -1,8 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import MY_CLEAN_PC_BAT from "@clean-pc/my-clean-pc.bat?raw";
-import MY_CLEAN_PC_PS1 from "@clean-pc/my-clean-pc.ps1?raw";
-import MY_CLEAN_PC_GUI_PS1 from "@clean-pc/My-Clean-PC-GUI.ps1?raw";
-import MY_CLEAN_PC_GUI_BAT from "@clean-pc/Launch-Clean-PC.bat?raw";
+import MY_CLEAN_PC_BAT       from "@clean-pc/my-clean-pc.bat?raw";
+import MY_CLEAN_PC_PS1       from "@clean-pc/my-clean-pc.ps1?raw";
+import MY_CLEAN_PC_GUI_PS1   from "@clean-pc/My-Clean-PC-GUI.ps1?raw";
+import MY_CLEAN_PC_GUI_BAT   from "@clean-pc/Launch-Clean-PC.bat?raw";
+import CLEAN_PC_CORE_PS1     from "@clean-pc/clean-pc-core.ps1?raw";
+import CLEANUP_TASK_PS1      from "@clean-pc/cleanup_task.ps1?raw";
+import SCHEDULE_30MIN_BAT    from "@clean-pc/schedule-30min.bat?raw";
+import SCHEDULE_30MIN_PS1    from "@clean-pc/schedule-30min.ps1?raw";
+import SCHEDULE_1WEEK_BAT    from "@clean-pc/schedule-1week.bat?raw";
+import SCHEDULE_1WEEK_PS1    from "@clean-pc/schedule-1week.ps1?raw";
+import SCHEDULE_15DAYS_BAT   from "@clean-pc/schedule-15days.bat?raw";
+import SCHEDULE_15DAYS_PS1   from "@clean-pc/schedule-15days.ps1?raw";
+import UNINSTALL_BAT         from "@clean-pc/uninstall.bat?raw";
+import UNINSTALL_PS1         from "@clean-pc/uninstall.ps1?raw";
+import MY_CLEAN_PC_STANDALONE_PS1 from "@clean-pc/my-clean-pc-standalone.ps1?raw";
 
 /* ═══════════════════════════════════════════════════════
    CONFETTI
@@ -494,6 +505,200 @@ function EmailReminderSection() {
 }
 
 /* ═══════════════════════════════════════════════════════
+   AUTO-CLEAN (TASK SCHEDULER) DOWNLOADS
+   NOTE: Web app cannot create Windows scheduled tasks directly.
+         These installer scripts create a real Task Scheduler job on the PC.
+         All scripts are bundled into the web app at build time via Vite ?raw imports.
+═══════════════════════════════════════════════════════ */
+
+/** Download all 4 required files at once with a short stagger so browsers
+ *  don't block rapid-fire downloads. */
+function downloadBundle(
+  files: { content: string; filename: string }[],
+  onEach: (filename: string) => void
+) {
+  files.forEach(({ content, filename }, i) => {
+    setTimeout(() => {
+      downloadFile(content, filename);
+      onEach(filename);
+    }, i * 300);
+  });
+}
+
+function AutoCleanDownloads() {
+  const [done, setDone] = useState<Record<string, boolean>>({});
+  const [activeSchedule, setActiveSchedule] = useState<"30min" | "weekly" | "15days" | null>(null);
+
+  function dl(content: string, filename: string, hint?: string) {
+    downloadFile(content, filename);
+    setDone((d) => ({ ...d, [filename]: true }));
+    toast("success", `${filename} downloaded!`, hint ?? "Keep all downloaded files in the same folder.");
+  }
+
+  /** Download the 4 core files needed for any schedule option */
+  function downloadCoreBundle() {
+    const files = [
+      { content: CLEAN_PC_CORE_PS1,  filename: "clean-pc-core.ps1"  },
+      { content: CLEANUP_TASK_PS1,   filename: "cleanup_task.ps1"    },
+    ];
+    downloadBundle(files, (fn) => setDone((d) => ({ ...d, [fn]: true })));
+  }
+
+  function pickAndDownloadSchedule(variant: "30min" | "weekly" | "15days") {
+    setActiveSchedule(variant);
+    // 1. Download core files first
+    downloadCoreBundle();
+    // 2. Then download the chosen scheduler pair (.bat + .ps1) with stagger
+    const pairs: Record<"30min" | "weekly" | "15days", { bat: string; batName: string; ps1: string; ps1Name: string }> = {
+      "30min":   { bat: SCHEDULE_30MIN_BAT,  batName: "schedule-30min.bat",  ps1: SCHEDULE_30MIN_PS1,  ps1Name: "schedule-30min.ps1"  },
+      "weekly":  { bat: SCHEDULE_1WEEK_BAT,  batName: "schedule-1week.bat",  ps1: SCHEDULE_1WEEK_PS1,  ps1Name: "schedule-1week.ps1"  },
+      "15days":  { bat: SCHEDULE_15DAYS_BAT, batName: "schedule-15days.bat", ps1: SCHEDULE_15DAYS_PS1, ps1Name: "schedule-15days.ps1" },
+    };
+    const p = pairs[variant];
+    setTimeout(() => { downloadFile(p.bat, p.batName);  setDone((d) => ({ ...d, [p.batName]: true })); }, 700);
+    setTimeout(() => { downloadFile(p.ps1, p.ps1Name);  setDone((d) => ({ ...d, [p.ps1Name]: true })); }, 1000);
+    toast("info", "4 files downloading…", "Put all 4 files in the same folder, then right-click the .bat file → Run as administrator.");
+  }
+
+  const scheduleLabels: Record<"30min" | "weekly" | "15days", { emoji: string; label: string; hint: string }> = {
+    "30min":  { emoji: "⚡", label: "Every 30 min",  hint: "Heavy daily use" },
+    "weekly": { emoji: "📅", label: "Every week",    hint: "Recommended ✓" },
+    "15days": { emoji: "🌙", label: "Every 15 days", hint: "Light use" },
+  };
+
+  const coreReady = done["clean-pc-core.ps1"] && done["cleanup_task.ps1"];
+
+  return (
+    <div style={{ width: "100%", background: "#0b1220", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "14px 16px" }}>
+      <div style={{ fontWeight: 900, fontSize: 14, color: "#e5e7eb", marginBottom: 4 }}>
+        🗓️ Auto-clean — real Windows Task Scheduler
+      </div>
+      <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.6, marginBottom: 10 }}>
+        A browser cannot delete PC temp folders by itself. These scripts install a silent
+        Windows Task Scheduler job called{" "}
+        <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 6px", borderRadius: 6 }}>MyCleanPC</code>{" "}
+        that runs automatically in the background — no pop-ups, no command windows.
+      </div>
+
+      {/* ── Step 1: pick schedule ── */}
+      <div style={{ fontSize: 12, color: "#d1d5db", fontWeight: 700, marginBottom: 6 }}>
+        Step 1 — Pick your schedule (downloads 4 files automatically):
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+        {(["30min", "weekly", "15days"] as const).map((v) => {
+          const { emoji, label, hint } = scheduleLabels[v];
+          const isActive = activeSchedule === v;
+          return (
+            <button
+              key={v}
+              className="win-btn"
+              style={{
+                background: isActive
+                  ? "linear-gradient(135deg,#16a34a,#15803d)"
+                  : "linear-gradient(135deg,#1e3a5f,#1e40af)",
+                border: isActive ? "2px solid #4ade80" : "2px solid transparent",
+                transition: "all .15s",
+              }}
+              onClick={() => pickAndDownloadSchedule(v)}
+            >
+              {emoji} {label}
+              <small style={{ color: isActive ? "#bbf7d0" : "#93c5fd" }}>
+                {isActive ? "✓ Files downloading…" : hint}
+              </small>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Step 2: individual core downloads (manual fallback) ── */}
+      <div style={{ fontSize: 12, color: "#d1d5db", fontWeight: 700, marginBottom: 6 }}>
+        Step 2 — Required base files (auto-downloaded above, or get individually):
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+        <button
+          className="win-btn win-btn-ps"
+          style={{ background: done["clean-pc-core.ps1"] ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg,#7c3aed,#4338ca)" }}
+          onClick={() => dl(CLEAN_PC_CORE_PS1, "clean-pc-core.ps1", "Core cleaning engine — required for all scripts.")}
+        >
+          ⬇️ clean-pc-core.ps1
+          <small>{done["clean-pc-core.ps1"] ? "✓ Got it!" : "Cleaning engine (required)"}</small>
+        </button>
+        <button
+          className="win-btn win-btn-ps"
+          style={{ background: done["cleanup_task.ps1"] ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg,#7c3aed,#4338ca)" }}
+          onClick={() => dl(CLEANUP_TASK_PS1, "cleanup_task.ps1", "Task runner — runs silently via Task Scheduler.")}
+        >
+          ⬇️ cleanup_task.ps1
+          <small>{done["cleanup_task.ps1"] ? "✓ Got it!" : "Silent task runner (required)"}</small>
+        </button>
+      </div>
+
+      {/* ── Step 3: run instructions ── */}
+      {coreReady && activeSchedule && (
+        <div style={{ background: "#0d2d1a", border: "1.5px solid #4ade80", borderRadius: 10, padding: "12px 14px", fontSize: 12, color: "#d1fae5", lineHeight: 1.8 }}>
+          <div style={{ fontWeight: 800, fontSize: 13, color: "#4ade80", marginBottom: 8 }}>
+            ✅ Files downloaded! Here's what to do next:
+          </div>
+          <ol style={{ paddingLeft: 18, margin: 0, color: "#a7f3d0" }}>
+            <li>Open your <strong style={{ color: "#fff" }}>Downloads</strong> folder</li>
+            <li>
+              Make sure these 4 files are there:
+              <br />
+              &nbsp;&nbsp;📄 <code style={{ background: "rgba(255,255,255,0.1)", padding: "1px 5px", borderRadius: 4 }}>clean-pc-core.ps1</code>
+              <br />
+              &nbsp;&nbsp;📄 <code style={{ background: "rgba(255,255,255,0.1)", padding: "1px 5px", borderRadius: 4 }}>cleanup_task.ps1</code>
+              <br />
+              &nbsp;&nbsp;📄 <code style={{ background: "rgba(255,255,255,0.1)", padding: "1px 5px", borderRadius: 4 }}>
+                {activeSchedule === "30min" ? "schedule-30min.bat" : activeSchedule === "weekly" ? "schedule-1week.bat" : "schedule-15days.bat"}
+              </code>
+              <br />
+              &nbsp;&nbsp;📄 <code style={{ background: "rgba(255,255,255,0.1)", padding: "1px 5px", borderRadius: 4 }}>
+                {activeSchedule === "30min" ? "schedule-30min.ps1" : activeSchedule === "weekly" ? "schedule-1week.ps1" : "schedule-15days.ps1"}
+              </code>
+            </li>
+            <li>
+              Right-click{" "}
+              <code style={{ background: "rgba(255,255,255,0.1)", padding: "1px 5px", borderRadius: 4 }}>
+                {activeSchedule === "30min" ? "schedule-30min.bat" : activeSchedule === "weekly" ? "schedule-1week.bat" : "schedule-15days.bat"}
+              </code>{" "}
+              → <strong style={{ color: "#fff" }}>Run as administrator</strong>
+            </li>
+            <li>Done! Your PC will now clean itself <strong style={{ color: "#fff" }}>{activeSchedule === "30min" ? "every 30 minutes" : activeSchedule === "weekly" ? "every Monday at 9 AM" : "every 15 days at 9 AM"}</strong></li>
+            <li>
+              Verify it worked: open CMD and type{" "}
+              <code style={{ background: "rgba(255,255,255,0.1)", padding: "1px 5px", borderRadius: 4 }}>schtasks /query /tn "MyCleanPC"</code>
+            </li>
+          </ol>
+          <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(255,200,0,0.1)", borderRadius: 6, color: "#fcd34d", fontWeight: 600 }}>
+            ⚠️ "Windows protected your PC"? Click <strong>More info → Run anyway</strong>. Safe — only deletes junk.
+          </div>
+        </div>
+      )}
+
+      {/* ── Uninstall ── */}
+      <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+        <button
+          className="win-btn"
+          style={{ flex: 1, background: "linear-gradient(135deg,#7f1d1d,#991b1b)", fontSize: 12 }}
+          onClick={() => {
+            dl(UNINSTALL_BAT, "uninstall.bat", "Right-click → Run as administrator to remove the scheduled task.");
+            setTimeout(() => dl(UNINSTALL_PS1, "uninstall.ps1"), 300);
+          }}
+        >
+          🗑️ Uninstall (remove scheduled task)
+          <small>{done["uninstall.bat"] ? "✓ Downloaded" : "Run as admin to remove"}</small>
+        </button>
+      </div>
+
+      <div style={{ marginTop: 8, fontSize: 11, color: "#6b7280", lineHeight: 1.6 }}>
+        All files install to <code style={{ background: "rgba(255,255,255,0.05)", padding: "1px 4px", borderRadius: 4 }}>%LOCALAPPDATA%\MyCleanPC\</code> automatically.
+        The scheduled task runs silently with no windows or prompts.
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
    GUI DOWNLOAD PANEL  (two-file: .ps1 + .bat launcher)
 ═══════════════════════════════════════════════════════ */
 function GuiDownloadPanel() {
@@ -853,9 +1058,36 @@ export default function App() {
             <span className="win-safe">🔒 Passwords, Downloads folder, and personal files are NEVER touched.</span>
           </div>
 
+          {/* ── One-file standalone cleaner (no dependencies) ── */}
+          <div style={{ width: "100%", background: "linear-gradient(135deg,#0f172a,#1e3a5f)", border: "2px solid #3b82f6", borderRadius: 14, padding: "14px 16px", marginBottom: 14 }}>
+            <div style={{ fontWeight: 900, fontSize: 14, color: "#93c5fd", marginBottom: 4 }}>
+              ⚡ Instant Clean — Single File (No Setup Needed)
+            </div>
+            <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.6, marginBottom: 10 }}>
+              Download <strong style={{ color: "#e2e8f0" }}>one file</strong>, right-click it, and choose <strong style={{ color: "#e2e8f0" }}>Run with PowerShell</strong>.
+              That's it — no extra files needed. Cleans everything in one shot.
+            </div>
+            <button
+              className="win-btn win-btn-ps"
+              style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", width: "100%" }}
+              onClick={() => {
+                downloadFile(MY_CLEAN_PC_STANDALONE_PS1, "my-clean-pc-standalone.ps1");
+                toast("success", "Standalone cleaner downloaded!", "Right-click my-clean-pc-standalone.ps1 → Run with PowerShell (as Administrator for best results).");
+              }}
+            >
+              ⬇️ Download Standalone Cleaner (.ps1 — single file)
+              <small>No other files needed — right-click → Run with PowerShell</small>
+            </button>
+          </div>
+
           {/* ── GUI launcher (recommended) ── */}
           <div style={{ marginBottom: 14 }}>
             <GuiDownloadPanel />
+          </div>
+
+          {/* ── Auto-clean scheduler ── */}
+          <div style={{ marginBottom: 14 }}>
+            <AutoCleanDownloads />
           </div>
 
           {/* ── Divider ── */}
@@ -948,7 +1180,8 @@ export default function App() {
               Both do the <strong>exact same job</strong>.
               <br /><strong>.bat</strong> = classic Windows file, just double-click it. Best for most people.
               <br /><strong>.ps1</strong> = PowerShell version, shows colourful progress text. Right-click → "Run with PowerShell".
-              <br />Either one works perfectly — pick whichever feels easier!
+              <br /><strong>Standalone .ps1</strong> = single file, no extra files needed — download and run.
+              <br />Any of them works perfectly — pick whichever feels easier!
             </div>
           </div>
 
