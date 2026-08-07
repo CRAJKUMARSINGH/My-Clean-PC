@@ -33,5 +33,6 @@ $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minu
 Unregister-ScheduledTask -TaskName "MyCleanPC" -Confirm:$false -ErrorAction SilentlyContinue
 Register-ScheduledTask -TaskName "MyCleanPC" -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force | Out-Null
 
-Write-Host "My Clean PC scheduled: every Monday at 9:00 AM (fully silent — no prompts)." -ForegroundColor Green
+Write-Host "My Clean PC scheduled: every Monday at 9:00 AM (fully silent - no prompts)." -ForegroundColor Green
 exit 0
+

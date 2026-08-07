@@ -169,11 +169,43 @@ interface CleanResult {
   cookies: boolean;
 }
 
+const APP_STORAGE_KEYS = [
+  "reminderEmail",
+  "mcp_freq",
+  "mcp_last",
+  "mcp_streak",
+  "mcp_visited",
+] as const;
+
+function snapshotStorage(storage: Storage) {
+  return APP_STORAGE_KEYS
+    .map((key) => [key, storage.getItem(key)] as const)
+    .filter((entry): entry is readonly [typeof APP_STORAGE_KEYS[number], string] => entry[1] !== null);
+}
+
+function restoreStorage(
+  storage: Storage,
+  entries: ReadonlyArray<readonly [typeof APP_STORAGE_KEYS[number], string]>,
+) {
+  entries.forEach(([key, value]) => storage.setItem(key, value));
+}
+
 async function runBrowserClean(): Promise<CleanResult> {
   const r: CleanResult = { localStorage: false, sessionStorage: false, caches: false, serviceWorkers: false, indexedDB: false, cookies: false };
+  const savedLocalState = snapshotStorage(localStorage);
+  const savedSessionState = snapshotStorage(sessionStorage);
 
-  try { localStorage.clear(); r.localStorage = true; } catch (_) {}
-  try { sessionStorage.clear(); r.sessionStorage = true; } catch (_) {}
+  try {
+    localStorage.clear();
+    restoreStorage(localStorage, savedLocalState);
+    r.localStorage = true;
+  } catch (_) {}
+
+  try {
+    sessionStorage.clear();
+    restoreStorage(sessionStorage, savedSessionState);
+    r.sessionStorage = true;
+  } catch (_) {}
 
   try {
     const keys = await caches.keys();
@@ -913,7 +945,7 @@ export default function App() {
       <div className="page">
         <ConfettiBurst active={state === "done"} />
 
-        <p className="greeting">{greetText}, Priyanka! {greetEmoji}</p>
+        <p className="greeting">{greetText}! {greetEmoji}</p>
 
         <div className="logo">
           <span>🧹</span>
@@ -1203,7 +1235,7 @@ export default function App() {
           </div>
         </div>
 
-        <p className="credit">💖 Designed for <span className="priyanka-name">Priyanka</span> only</p>
+        <p className="credit">💖 Built to clean safely</p>
       </div>
     </>
   );

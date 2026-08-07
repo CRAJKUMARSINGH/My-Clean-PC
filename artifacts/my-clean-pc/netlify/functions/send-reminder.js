@@ -65,7 +65,7 @@ exports.handler = async (event) => {
 
     <!-- Body -->
     <div style="padding:28px 28px 8px;">
-      <p style="font-size:18px;font-weight:700;color:#111827;margin:0 0 8px;">Hi Priyanka! 👋</p>
+      <p style="font-size:18px;font-weight:700;color:#111827;margin:0 0 8px;">Hi there! 👋</p>
       <p style="font-size:15px;color:#374151;line-height:1.7;margin:0 0 20px;">
         This is your monthly reminder to clean your PC.
         Your next clean is due on
@@ -101,7 +101,7 @@ exports.handler = async (event) => {
     <!-- Footer -->
     <div style="background:#f9fafb;padding:16px 28px;text-align:center;border-top:1px solid #f3f4f6;">
       <p style="margin:0;font-size:11px;color:#9ca3af;">
-        Made with ❤️ for Priyanka &nbsp;·&nbsp;
+        My Clean PC reminder &nbsp;·&nbsp;
         You're getting this because you signed up for cleaning reminders.<br>
         Open the app and remove your email to stop these reminders.
       </p>
