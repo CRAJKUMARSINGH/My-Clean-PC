@@ -1,9 +1,0 @@
-uploads = []
-generated = []
-
-[[outputs]]
-id = "FozoSpJrG_h1jeB2GHJUn"
-uri = "file://space-freed-reporting.patch"
-type = "unspecified"
-title = "Space-freed reporting patch"
-description = "Minimal patch for the six synchronized cleaner scripts. It fixes the pre-scan byte total and adds the existing shared free-space fallbacks to standalone scripts; no other cleanup behavior is changed."
