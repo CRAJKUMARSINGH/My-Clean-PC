@@ -144,7 +144,7 @@ function Get-CleanupEstimate {
     AddHit ([System.Environment]::ExpandEnvironmentVariables('%LOCALAPPDATA%\Microsoft\Windows\Explorer'))  'Thumbnail DB'
 
     $sorted = $hits | Sort-Object { $_.Bytes } -Descending
-    $total  = [long]($hits | Measure-Object -Property Bytes -Sum).Sum
+    $total  = [long](($hits | Measure-Object -Property Bytes -Sum).Sum)
 
     return @{
         TotalBytes = $total

@@ -55,11 +55,26 @@ function Format-ByteSize {
 
 function Get-DriveFreeBytes {
     param([string]$Drive = $env:SystemDrive)
+    $letter = $Drive.TrimEnd('\').TrimEnd(':')
+    $letterSlash = $letter + ':\'
     try {
-        $letter = $Drive.TrimEnd('\').TrimEnd(':') + ':\'
         $info = [System.IO.DriveInfo]::GetDrives() |
-                Where-Object { $_.Name -ieq $letter } | Select-Object -First 1
-        if ($info) { return $info.AvailableFreeSpace }
+                Where-Object { $_.Name -ieq $letterSlash } | Select-Object -First 1
+        if ($info -and $info.AvailableFreeSpace -gt 0) {
+            return [long]$info.AvailableFreeSpace
+        }
+    } catch {}
+    try {
+        $psd = Get-PSDrive -Name $letter -ErrorAction Stop
+        if ($psd -and $psd.Free -gt 0) {
+            return [long]$psd.Free
+        }
+    } catch {}
+    try {
+        $wmi = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='${letter}:'" -ErrorAction Stop
+        if ($wmi -and $wmi.FreeSpace -gt 0) {
+            return [long]$wmi.FreeSpace
+        }
     } catch {}
     return [long]0
 }
@@ -126,7 +141,7 @@ function Get-CleanupEstimate {
     AddHit ([System.Environment]::ExpandEnvironmentVariables('%LOCALAPPDATA%\Microsoft\Windows\INetCache')) 'INetCache'
     AddHit ([System.Environment]::ExpandEnvironmentVariables('%LOCALAPPDATA%\Microsoft\Windows\Explorer'))  'Thumbnail DB'
     $sorted = $hits | Sort-Object { $_.Bytes } -Descending
-    $total  = [long]($hits | Measure-Object -Property Bytes -Sum).Sum
+    $total  = [long](($hits | Measure-Object -Property Bytes -Sum).Sum)
     return @{ TotalBytes = $total; Count = $hits.Count; Top5 = @($sorted | Select-Object -First 5) }
 }
 
