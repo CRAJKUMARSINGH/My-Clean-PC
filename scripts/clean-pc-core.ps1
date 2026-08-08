@@ -28,15 +28,34 @@ function Format-ByteSize {
 }
 
 # Reads available free bytes on the given drive letter (e.g. "C:" or "C:\").
-# Uses DriveInfo - no shell, no WMI, instant.
+# Tries DriveInfo first, falls back to Get-PSDrive for reliability in all contexts.
 function Get-DriveFreeBytes {
     param([string]$Drive = $env:SystemDrive)
+    # Normalise to "X:\" form
+    $letter = $Drive.TrimEnd('\').TrimEnd(':')
+    $letterSlash = $letter + ':\'
+    # Method 1: .NET DriveInfo (fastest, works without admin)
     try {
-        $letter = $Drive.TrimEnd('\').TrimEnd(':') + ':\'
         $info = [System.IO.DriveInfo]::GetDrives() |
-                Where-Object { $_.Name -ieq $letter } |
+                Where-Object { $_.Name -ieq $letterSlash } |
                 Select-Object -First 1
-        if ($info) { return $info.AvailableFreeSpace }
+        if ($info -and $info.AvailableFreeSpace -gt 0) {
+            return [long]$info.AvailableFreeSpace
+        }
+    } catch {}
+    # Method 2: Get-PSDrive fallback (works in all PowerShell contexts)
+    try {
+        $psd = Get-PSDrive -Name $letter -ErrorAction Stop
+        if ($psd -and $psd.Free -gt 0) {
+            return [long]$psd.Free
+        }
+    } catch {}
+    # Method 3: WMI fallback (last resort)
+    try {
+        $wmi = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='${letter}:'" -ErrorAction Stop
+        if ($wmi -and $wmi.FreeSpace -gt 0) {
+            return [long]$wmi.FreeSpace
+        }
     } catch {}
     return [long]0
 }
