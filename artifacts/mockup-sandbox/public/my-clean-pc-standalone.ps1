@@ -141,7 +141,7 @@ function Get-CleanupEstimate {
     AddHit ([System.Environment]::ExpandEnvironmentVariables('%LOCALAPPDATA%\Microsoft\Windows\INetCache')) 'INetCache'
     AddHit ([System.Environment]::ExpandEnvironmentVariables('%LOCALAPPDATA%\Microsoft\Windows\Explorer'))  'Thumbnail DB'
     $sorted = $hits | Sort-Object { $_.Bytes } -Descending
-    $total  = [long](($hits | Measure-Object -Property Bytes -Sum).Sum)
+    $total  = [long]($hits | ForEach-Object { $_.Bytes } | Measure-Object -Sum).Sum
     return @{ TotalBytes = $total; Count = $hits.Count; Top5 = @($sorted | Select-Object -First 5) }
 }
 
