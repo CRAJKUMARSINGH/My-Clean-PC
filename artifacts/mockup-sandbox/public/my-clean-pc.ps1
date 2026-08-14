@@ -3,6 +3,14 @@
 # Requires clean-pc-core.ps1 in the same folder.
 # Run: PowerShell -ExecutionPolicy Bypass -File my-clean-pc.ps1
 
+# ── AUTO-BYPASS: re-launch with ExecutionPolicy Bypass if needed (no prompts ever) ──
+if ((Get-ExecutionPolicy -Scope Process) -ne 'Bypass') {
+    $argStr = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $MyInvocation.MyCommand.Path + '"'
+    Start-Process powershell.exe -ArgumentList $argStr
+    exit
+}
+# ────────────────────────────────────────────────────────────────────────────────────
+
 $ErrorActionPreference = "SilentlyContinue"
 $ConfirmPreference = "None"
 $ProgressPreference = "SilentlyContinue"

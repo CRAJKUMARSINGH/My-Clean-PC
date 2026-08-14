@@ -2,6 +2,14 @@
 # Run with: PowerShell -ExecutionPolicy Bypass -File schedule-15days.ps1
 # Or: Right-click > Run with PowerShell (as Administrator)
 
+# ── AUTO-BYPASS: re-launch with ExecutionPolicy Bypass if needed (no prompts ever) ──
+if ((Get-ExecutionPolicy -Scope Process) -ne 'Bypass') {
+    $argStr = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $MyInvocation.MyCommand.Path + '"'
+    Start-Process powershell.exe -ArgumentList $argStr -Verb RunAs
+    exit
+}
+# ────────────────────────────────────────────────────────────────────────────────────
+
 $ErrorActionPreference = "SilentlyContinue"
 
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]"Administrator")) {

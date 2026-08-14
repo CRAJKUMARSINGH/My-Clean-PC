@@ -5,6 +5,15 @@
 
 param([switch]$FullClean)
 
+# ── AUTO-BYPASS: re-launch with ExecutionPolicy Bypass if needed (no prompts ever) ──
+if ((Get-ExecutionPolicy -Scope Process) -ne 'Bypass') {
+    $argStr = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $MyInvocation.MyCommand.Path + '"'
+    if ($FullClean) { $argStr += ' -FullClean' }
+    Start-Process powershell.exe -ArgumentList $argStr
+    exit
+}
+# ────────────────────────────────────────────────────────────────────────────────────
+
 $ErrorActionPreference = "SilentlyContinue"
 $ConfirmPreference = "None"
 $ProgressPreference = "SilentlyContinue"
