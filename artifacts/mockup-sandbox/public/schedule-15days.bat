@@ -30,4 +30,3 @@ schtasks /create /tn "MyCleanPC" ^
 
 echo My Clean PC scheduled: every 15 days at 9:00 AM (fully silent — no prompts).
 exit /b 0
-

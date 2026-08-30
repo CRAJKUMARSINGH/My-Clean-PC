@@ -28,34 +28,15 @@ function Format-ByteSize {
 }
 
 # Reads available free bytes on the given drive letter (e.g. "C:" or "C:\").
-# Tries DriveInfo first, falls back to Get-PSDrive for reliability in all contexts.
+# Uses DriveInfo - no shell, no WMI, instant.
 function Get-DriveFreeBytes {
     param([string]$Drive = $env:SystemDrive)
-    # Normalise to "X:\" form
-    $letter = $Drive.TrimEnd('\').TrimEnd(':')
-    $letterSlash = $letter + ':\'
-    # Method 1: .NET DriveInfo (fastest, works without admin)
     try {
+        $letter = $Drive.TrimEnd('\').TrimEnd(':') + ':\'
         $info = [System.IO.DriveInfo]::GetDrives() |
-                Where-Object { $_.Name -ieq $letterSlash } |
+                Where-Object { $_.Name -ieq $letter } |
                 Select-Object -First 1
-        if ($info -and $info.AvailableFreeSpace -gt 0) {
-            return [long]$info.AvailableFreeSpace
-        }
-    } catch {}
-    # Method 2: Get-PSDrive fallback (works in all PowerShell contexts)
-    try {
-        $psd = Get-PSDrive -Name $letter -ErrorAction Stop
-        if ($psd -and $psd.Free -gt 0) {
-            return [long]$psd.Free
-        }
-    } catch {}
-    # Method 3: WMI fallback (last resort)
-    try {
-        $wmi = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='${letter}:'" -ErrorAction Stop
-        if ($wmi -and $wmi.FreeSpace -gt 0) {
-            return [long]$wmi.FreeSpace
-        }
+        if ($info) { return $info.AvailableFreeSpace }
     } catch {}
     return [long]0
 }
@@ -144,7 +125,7 @@ function Get-CleanupEstimate {
     AddHit ([System.Environment]::ExpandEnvironmentVariables('%LOCALAPPDATA%\Microsoft\Windows\Explorer'))  'Thumbnail DB'
 
     $sorted = $hits | Sort-Object { $_.Bytes } -Descending
-    $total  = [long]($hits | ForEach-Object { $_.Bytes } | Measure-Object -Sum).Sum
+    $total  = [long]($hits | Measure-Object -Property Bytes -Sum).Sum
 
     return @{
         TotalBytes = $total
@@ -170,7 +151,7 @@ function Format-ByteComparison {
     if ($video  -in 5..999)   { return "That's like $("{0:N0}" -f $video) minutes of HD video" }
     if ($emails -in 50..9999) { return "That's like $("{0:N0}" -f $emails) emails" }
     if ($songs  -lt 50)       { return "That's like $("{0:N0}" -f $photos) holiday photos" }
-    return "That's like $("{0:N0}" -f [Math]::Round($Bytes / 1GB * 250)) songs"
+    return "That's like $("{0:N0}" -f ($Bytes / 1GB * 250) | [Math]::Round) songs"
 }
 
 # ------------------------------------------------------------------------- #
@@ -1107,5 +1088,5 @@ function Invoke-MyCleanPCCore {
     }
     & $Log "FREED_BYTES:$totalFreed"   # machine-readable sentinel for GUI
     & $Log "============================================"
-    & $Log "My Clean PC run complete."
+    & $Log "THANKS CODEX FOR UR CLEAN PC"
 }

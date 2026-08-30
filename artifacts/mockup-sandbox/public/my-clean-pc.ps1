@@ -1,15 +1,7 @@
-﻿# My Clean PC - Windows Cache Cleaner (PowerShell)
+# My Clean PC - Windows Cache Cleaner (PowerShell)
 # Designed for Priyanka
 # Requires clean-pc-core.ps1 in the same folder.
 # Run: PowerShell -ExecutionPolicy Bypass -File my-clean-pc.ps1
-
-# ── AUTO-BYPASS: re-launch with ExecutionPolicy Bypass if needed (no prompts ever) ──
-if ((Get-ExecutionPolicy -Scope Process) -ne 'Bypass') {
-    $argStr = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $MyInvocation.MyCommand.Path + '"'
-    Start-Process powershell.exe -ArgumentList $argStr
-    exit
-}
-# ────────────────────────────────────────────────────────────────────────────────────
 
 $ErrorActionPreference = "SilentlyContinue"
 $ConfirmPreference = "None"
@@ -32,38 +24,11 @@ Write-Host "  Downloads folder is NEVER touched."        -ForegroundColor Yellow
 Write-Host "  Busy temp/cache files auto-skip - no prompts." -ForegroundColor Yellow
 Write-Host ""
 
-# Track whether we have seen the space-freed line so we can highlight it.
-$script:SpaceFreedLine = $null
-
 function Write-CleanLog {
     param([string]$Message)
-
-    # Machine-readable sentinels - captured silently, not printed
-    if ($Message -match '^PRESCAN_ESTIMATE:') {
-        $script:EstimateStr = $Message -replace '^PRESCAN_ESTIMATE:', ''
-        return
-    }
-    if ($Message -match '^FREED_BYTES:') {
-        return   # used by Electron GUI only
-    }
-
-    if ($Message -match '^-- PRE-SCAN') {
-        Write-Host ""
-        Write-Host $Message -ForegroundColor Yellow
-    } elseif ($Message -match '^-- STEP') {
+    if ($Message -match '^-- STEP') {
         Write-Host ""
         Write-Host $Message -ForegroundColor Cyan
-    } elseif ($Message -match 'Estimated junk found') {
-        Write-Host $Message -ForegroundColor Yellow
-    } elseif ($Message -match "^    ") {
-        # Indented pre-scan top-5 rows
-        Write-Host $Message -ForegroundColor DarkYellow
-    } elseif ($Message -match "That's like") {
-        Write-Host $Message -ForegroundColor Cyan
-    } elseif ($Message -match 'Space freed this run') {
-        $script:SpaceFreedLine = $Message
-    } elseif ($Message -match '^={3,}') {
-        # Suppress inner separators; we draw our own below
     } elseif ($Message -match 'auto-skip|NOT touched|skipped') {
         Write-Host $Message -ForegroundColor DarkYellow
     } else {
@@ -71,25 +36,25 @@ function Write-CleanLog {
     }
 }
 
-Invoke-MyCleanPCCore -Log { param([string]$Message) Write-CleanLog $Message }
+Invoke-MyCleanPCCore -Log { param([string]$Message) Write-CleanLog $Message } -ShowPopup
 
-# ---- Final summary block ------------------------------------------------
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
-Write-Host "  All done!" -ForegroundColor Green
-
-if ($script:SpaceFreedLine) {
-    # Extract just the size string (e.g. "3.42 GB") for a punchy display line
-    $sizeOnly = ($script:SpaceFreedLine -replace '.*Space freed this run:\s*', '').Trim()
-    Write-Host ""
-    Write-Host ("  >>> " + $sizeOnly + " freed <<<") -ForegroundColor White -BackgroundColor DarkGreen
-    Write-Host ""
-}
-
+Write-Host "  All done!"                                 -ForegroundColor Green
 Write-Host "  Temp + app cache cleaned (locked files skipped)." -ForegroundColor Green
-Write-Host "  Passwords (Login Data) were NOT touched."         -ForegroundColor Green
-Write-Host "  Autofill/form data was NOT touched."              -ForegroundColor Green
-Write-Host "  Downloads folder was NOT touched."                -ForegroundColor Green
-Write-Host ""
-Write-Host "  THANKS CODEX FOR UR CLEAN PC" -ForegroundColor Magenta
+Write-Host "  Passwords (Login Data) were NOT touched."  -ForegroundColor Green
+Write-Host "  Autofill/form data was NOT touched."       -ForegroundColor Green
+Write-Host "  Downloads folder was NOT touched."         -ForegroundColor Green
+Write-Host "  THANKS CODEX FOR UR CLEAN PC"              -ForegroundColor Magenta
+Write-Host "  THANKS ANTIGRAVITY AT COMPLETION"          -ForegroundColor Magenta
 Write-Host "============================================" -ForegroundColor Cyan
+Write-Host ""
+
+if ($Host.Name -eq "ConsoleHost" -and [Environment]::UserInteractive -and -not (
+    [System.Console]::IsInputRedirected -or [System.Console]::IsOutputRedirected
+)) {
+    Write-Host "Press any key to exit..."
+    try {
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    } catch {}
+}

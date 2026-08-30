@@ -3,13 +3,12 @@
 # How to run: right-click this file -> "Run with PowerShell"
 # For best results: right-click -> "Run as Administrator"
 
-param([switch]$FullClean)
-
 $ErrorActionPreference = "SilentlyContinue"
 $ConfirmPreference = "None"
 $ProgressPreference = "SilentlyContinue"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+param([switch]$FullClean)
 
 # Check for admin rights
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)

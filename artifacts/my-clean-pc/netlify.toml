@@ -1,15 +1,15 @@
 [build]
   base      = "."
-  command   = "npm install -g pnpm && pnpm install --no-frozen-lockfile && node ../../scripts/sync-cleaners.mjs && pnpm --filter @workspace/my-clean-pc run build"
-  publish   = "artifacts/my-clean-pc/dist/public"
-  functions = "netlify/functions"
+  command   = "pnpm install && pnpm --filter @workspace/my-clean-pc run build"
+  publish   = "artifacts/my-clean-pc/dist"
+  functions = "artifacts/my-clean-pc/netlify/functions"
 
 [build.environment]
   PORT         = "19705"
   BASE_PATH    = "/"
   NODE_VERSION = "20"
 
-# Required env vars (Netlify → Site configuration → Environment variables):
+# Required env vars (set in Netlify → Site configuration → Environment variables):
 #   RESEND_API_KEY  — get a free key at resend.com
 #   APP_URL         — your Netlify site URL, e.g. https://my-clean-pc.netlify.app
 

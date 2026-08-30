@@ -2,14 +2,6 @@
 # Run with: PowerShell -ExecutionPolicy Bypass -File schedule-1week.ps1
 # Or: Right-click > Run with PowerShell (as Administrator)
 
-# ── AUTO-BYPASS: re-launch with ExecutionPolicy Bypass if needed (no prompts ever) ──
-if ((Get-ExecutionPolicy -Scope Process) -ne 'Bypass') {
-    $argStr = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $MyInvocation.MyCommand.Path + '"'
-    Start-Process powershell.exe -ArgumentList $argStr -Verb RunAs
-    exit
-}
-# ────────────────────────────────────────────────────────────────────────────────────
-
 $ErrorActionPreference = "SilentlyContinue"
 
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]"Administrator")) {
@@ -36,11 +28,10 @@ if (Test-Path (Join-Path $scriptDir "my-clean-pc.bat")) {
 $taskScript = Join-Path $installDir "cleanup_task.ps1"
 $action   = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$taskScript`""
 $trigger  = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday -At "09:00"
-$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -RunOnlyIfNetworkAvailable $false
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -RunOnlyIfNetworkAvailable:$false
 
 Unregister-ScheduledTask -TaskName "MyCleanPC" -Confirm:$false -ErrorAction SilentlyContinue
 Register-ScheduledTask -TaskName "MyCleanPC" -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force | Out-Null
 
-Write-Host "My Clean PC scheduled: every Monday at 9:00 AM (fully silent - no prompts)." -ForegroundColor Green
+Write-Host "My Clean PC scheduled: every Monday at 9:00 AM (fully silent — no prompts)." -ForegroundColor Green
 exit 0
-

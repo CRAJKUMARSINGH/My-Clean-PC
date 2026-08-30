@@ -28,7 +28,7 @@ if exist "%PS1_FILE%" (
 )
 
 if exist "%CORE_FILE%" (
-  powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $ConfirmPreference='None'; $ProgressPreference='SilentlyContinue'; . '%CORE_FILE%'; Invoke-MyCleanPCCore"
+  powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $ConfirmPreference='None'; $ProgressPreference='SilentlyContinue'; . '%CORE_FILE%'; Invoke-MyCleanPCCore -ShowPopup"
   echo.
   echo THANKS CODEX FOR UR CLEAN PC
   echo THANKS ANTIGRAVITY AT COMPLETION

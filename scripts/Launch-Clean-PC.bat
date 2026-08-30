@@ -1,16 +1,18 @@
 @echo off
-setlocal EnableExtensions
-title My Clean PC - GUI Launcher
+:: My Clean PC - GUI Launcher (FullClean)
+:: This batch runs the PowerShell cleanup script with the -FullClean switch.
 
-:: Always run the GUI script from the same folder as this .bat file.
-set "PSFILE=%~dp0My-Clean-PC-GUI.ps1"
+:: Determine the location of the PowerShell script (always the one in the project folder).
+set "PROJECT_ROOT=C:\Users\Rajkumar\My-Clean-PC"
+set "PSFILE=%PROJECT_ROOT%\scripts\My-Clean-PC-GUI.ps1"
 
 if not exist "%PSFILE%" (
-    echo Error: My-Clean-PC-GUI.ps1 not found beside this launcher.
-    echo Put Launch-Clean-PC.bat and My-Clean-PC-GUI.ps1 in the same folder.
+    echo Error: PowerShell script not found at "%PSFILE%".
+    echo Please ensure the project is installed correctly.
     pause
     exit /b 1
 )
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PSFILE%"
-exit /b %ERRORLEVEL%
+:: Launch PowerShell (minimized) with the FullClean flag
+start "" /min powershell.exe -ExecutionPolicy Bypass -NoProfile -File "%PSFILE%" -FullClean
+exit /b 0

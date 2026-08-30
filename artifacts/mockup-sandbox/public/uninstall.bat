@@ -17,4 +17,3 @@ if exist "%INSTALL_DIR%" rd /s /q "%INSTALL_DIR%"
 
 echo My Clean PC uninstalled. Scheduled task and files removed.
 exit /b 0
-
