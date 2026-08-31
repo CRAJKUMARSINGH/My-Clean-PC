@@ -1,114 +1,101 @@
-# My Clean PC - Scheduled Task Creator (PowerShell)
-# Creates a scheduled task to run appfolder-cleaner.ps1 every 30 minutes
-#
-# Author: Script
-# Date: 2026-07-21
-# Purpose: Set up automated cleanup of application folders
+﻿# My Clean PC - Installer & Scheduled Task Setup
+# Copies cleanup_task.ps1 + clean-pc-core.ps1 to install dir,
+# then registers/updates the MyCleanPC scheduled task to run every 6 hours.
+# Run once from the repo root with: powershell -ExecutionPolicy Bypass -File scripts\create-scheduled-task.ps1
 
-param(
-    [string]$TaskName = "MyCleanPCAppFolderCleanup",
-    [string]$ScriptPath = "C:\Scripts\appfolder-cleaner.ps1",
-    [string]$UserName = "Rajkumar",
-    [string]$Description = "Automated cleanup of application folders from AppData\\Roaming every 30 minutes"
-)
+$ErrorActionPreference  = "SilentlyContinue"
+$ConfirmPreference      = "None"
+$ProgressPreference     = "SilentlyContinue"
+$PSDefaultParameterValues["*:Confirm"] = $false
+$PSDefaultParameterValues["*:Force"]   = $true
 
-# Configuration
-$triggerActionMessage = "Starting scheduled AppFolder cleanup..."
-$triggerActionCompleteMessage = "Scheduled AppFolder cleanup completed successfully"
-$triggerActionErrorMessage = "Scheduled AppFolder cleanup failed"
+# ---- Config ---------------------------------------------------------------
+$TaskName    = "MyCleanPC"
+$InstallDir  = "$env:LOCALAPPDATA\MyCleanPC"
+$RepoScripts = "$PSScriptRoot"          # wherever this file lives (scripts/)
+$TaskScript  = Join-Path $InstallDir "cleanup_task.ps1"
+$LogFile     = Join-Path $InstallDir "install_log.txt"
+$IntervalHrs = 6
+$ExecLimitHr = 2
+# ---------------------------------------------------------------------------
 
-Write-Host "=== My Clean PC - Scheduled Task Creator ===" -ForegroundColor Cyan
-Write-Host "Creating scheduled task: $TaskName" -ForegroundColor Yellow
-Write-Host "Script to run: $ScriptPath" -ForegroundColor Yellow
-Write-Host "User: $UserName" -ForegroundColor Yellow
-Write-Host "" -ForegroundColor White
-
-# Check if the script exists
-if (-not (Test-Path $ScriptPath)) {
-    Write-Host "Error: Script file not found: $ScriptPath" -ForegroundColor Red
-    exit 1
-}
-
-# Check if running with administrative privileges
-$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $isAdmin) {
-    Write-Host "Warning: Not running with administrative privileges. Scheduled tasks may require admin rights." -ForegroundColor Yellow
-}
-
-# Create the PowerShell script content for the scheduled task action
-$actionScript = @"
-`$ErrorActionPreference = `"SilentlyContinue`"
-`$ConfirmPreference = `"None`"
-`$ProgressPreference = `"SilentlyContinue`"
-
-`$ScriptPath = `"$ScriptPath`"
-`$LogDir = `"C:\Scripts\Logs`"
-`$UserName = `"$UserName`"
-
-if (-not (Test-Path `$LogDir)) { New-Item -ItemType Directory -Path `$LogDir -Force | Out-Null }
-
-`$Timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-`$LogFile = Join-Path `$LogDir `"ScheduledTaskLog-$(Get-Date -Format 'yyyyMMdd').log`"
-
-`$LogEntry = "[`$Timestamp] [SCHED_TASK] Starting scheduled cleanup task..."
-`$LogEntry | Out-File -FilePath `$LogFile -Append
-
-# Logging function
 function Write-Log {
-    param([string]`$Message)
-    `Timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    `LogEntry = "[`$Timestamp] [SCHED_TASK] `$Message"
-    Write-Host `$Message
-    `LogEntry | Out-File -FilePath '`$'\$LogFile' -Append -ErrorAction SilentlyContinue
+    param([string]$Msg)
+    $line = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $Msg"
+    Write-Host $line
+    Add-Content -Path $LogFile -Value $line -ErrorAction SilentlyContinue
 }
 
-# Execute cleanup script
-`StartTime = Get-Date
-& `$ScriptPath
-`EndTime = Get-Date
-`Duration = `{0:g}` -f (`EndTime - `StartTime)
-`Write-Log "Scheduled task completed in `$Duration"
-"@
+Write-Log "===== MyCleanPC Installer ====="
 
-# Create the PowerShell script file for the scheduled task
-$scheduledTaskScriptPath = "C:\Scripts\scheduled-task-action.ps1"
-Set-Content -Path $scheduledTaskScriptPath -Value $actionScript -Force
-Write-Host "Created scheduled task action script: $scheduledTaskScriptPath" -ForegroundColor Green
+# 1. Create install dir
+if (-not (Test-Path $InstallDir)) {
+    New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+    Write-Log "Created install dir: $InstallDir"
+} else {
+    Write-Log "Install dir exists: $InstallDir"
+}
 
-# Create the scheduled task using PowerShell ScheduledTasks module
-$taskExists = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-if ($taskExists) {
-    Write-Host "Warning: Scheduled task '$TaskName' already exists." -ForegroundColor Yellow
-    $removeChoice = Read-Host "Do you want to remove the existing task and create a new one? (y/N)"
-    if ($removeChoice -match "^[Yy]") {
-        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
-        Write-Host "Removed existing task: $TaskName" -ForegroundColor Yellow
-    } else {
-        Write-Host "Using existing task configuration." -ForegroundColor Green
-        exit 0
+# 2. Copy scripts from repo to install dir
+foreach ($script in @("cleanup_task.ps1", "clean-pc-core.ps1")) {
+    $src = Join-Path $RepoScripts $script
+    $dst = Join-Path $InstallDir  $script
+    if (-not (Test-Path $src)) {
+        Write-Log "ERROR: Source not found: $src"
+        exit 1
     }
+    Copy-Item -Path $src -Destination $dst -Force
+    Write-Log "Copied $script -> $InstallDir"
 }
 
-# Define the trigger (every 30 minutes)
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30) -RepetitionDuration (New-TimeSpan -Days 365*10) -Enabled
+# 3. Remove existing task if present
+$existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+if ($existing) {
+    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+    Write-Log "Removed existing task: $TaskName"
+}
 
-# Define the action
-$action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-ExecutionPolicy Bypass -File \"$ScriptPath\""
+# 4. Build task components
+$action = New-ScheduledTaskAction `
+    -Execute "powershell.exe" `
+    -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$TaskScript`""
 
-# Create the scheduled task
-$task = New-ScheduledTask -TaskName $TaskName -Description $Description -Trigger $trigger -Action $action -RunLevel Highest
+# Start now, repeat every 6 hours indefinitely
+$trigger = New-ScheduledTaskTrigger `
+    -Once `
+    -At (Get-Date) `
+    -RepetitionInterval (New-TimeSpan -Hours $IntervalHrs)
 
-# Register the task
-Register-ScheduledTask -TaskName $TaskName -InputObject $task -User `$UserName -Password (Read-Host -AsSecureString "Enter password for $UserName") -ErrorAction Stop
+$settings = New-ScheduledTaskSettingsSet `
+    -ExecutionTimeLimit        (New-TimeSpan -Hours $ExecLimitHr) `
+    -MultipleInstances         IgnoreNew `
+    -StartWhenAvailable `
+    -DontStopIfGoingOnBatteries `
+    -AllowStartIfOnBatteries `
+    -Priority 7
 
-Write-Host "=== Scheduled Task Created Successfully ===" -ForegroundColor Green
-Write-Host "Task Name: $TaskName" -ForegroundColor White
-Write-Host "Task Description: $Description" -ForegroundColor White
-Write-Host "Running every 30 minutes" -ForegroundColor White
-Write-Host "Script: $ScriptPath" -ForegroundColor White
-Write-Host "User: $UserName" -ForegroundColor White
-Write-Host "" -ForegroundColor White
-Write-Host "You can verify the task in Task Scheduler (taskschd.msc) or using:" -ForegroundColor Gray
-Write-Host "Get-ScheduledTask -TaskName '$TaskName'" -ForegroundColor Gray
-Write-Host "" -ForegroundColor White
-Write-Host "The script will run automatically every 30 minutes and log results to C:\Scripts\Logs\" -ForegroundColor Green
+$principal = New-ScheduledTaskPrincipal `
+    -UserId    $env:USERNAME `
+    -LogonType Interactive `
+    -RunLevel  Highest
+
+# 5. Register task
+Register-ScheduledTask `
+    -TaskName   $TaskName `
+    -Action     $action `
+    -Trigger    $trigger `
+    -Settings   $settings `
+    -Principal  $principal `
+    -Force | Out-Null
+
+Write-Log "Task registered: $TaskName"
+
+# 6. Verify
+$info = Get-ScheduledTaskInfo -TaskName $TaskName -ErrorAction SilentlyContinue
+$task = Get-ScheduledTask     -TaskName $TaskName -ErrorAction SilentlyContinue
+Write-Log "State         : $($task.State)"
+Write-Log "Next run      : $($info.NextRunTime)"
+Write-Log "Repeat every  : $IntervalHrs hours"
+Write-Log "Exec limit    : $ExecLimitHr hours"
+Write-Log "Script        : $TaskScript"
+Write-Log "===== Install complete ====="
