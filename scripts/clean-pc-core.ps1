@@ -1,4 +1,4 @@
-﻿# My Clean PC - shared cleaning core (single source of truth)
+# My Clean PC - shared cleaning core (single source of truth)
 # Dot-source from my-clean-pc.ps1, cleanup_task.ps1, etc.
 # Passwords (Login Data, key4.db), autofill data, Downloads, and Quick Access pins are NEVER touched.
 
@@ -151,7 +151,7 @@ function Format-ByteComparison {
     if ($video  -in 5..999)   { return "That's like $("{0:N0}" -f $video) minutes of HD video" }
     if ($emails -in 50..9999) { return "That's like $("{0:N0}" -f $emails) emails" }
     if ($songs  -lt 50)       { return "That's like $("{0:N0}" -f $photos) holiday photos" }
-    return "That's like $("{0:N0}" -f ($Bytes / 1GB * 250) | [Math]::Round) songs"
+    return "That's like $("{0:N0}" -f [Math]::Round($Bytes / 1GB * 250)) songs"
 }
 
 # ------------------------------------------------------------------------- #
@@ -981,7 +981,16 @@ function Invoke-MyCleanPCCore {
     & $Log "PRESCAN_ESTIMATE:$estStr"   # machine-readable sentinel for GUI
     & $Log ""
 
-    & $Log "-- STEP 1: AI App Caches --"
+    & $Log "-- STEP 1: Temporary Files + Recycle Bin --"
+    & $Log "  (Robocopy bulk clear - zero Explorer prompts; locked files auto-skip)"
+    Clear-RigorousTempLocations
+    $localCount = Clear-AppDataJunkSweep "%LOCALAPPDATA%"
+    $roamCount  = Clear-AppDataJunkSweep "%APPDATA%"
+    & $Log "  [Rigorous Temp + AppData] cleared ($localCount local + $roamCount roaming junk folders)."
+    try { Clear-RecycleBinSilent } catch {}
+    & $Log "  [Recycle Bin] emptied."
+
+    & $Log "-- STEP 2: AI App Caches --"
     Remove-CleanPaths @(
         "%APPDATA%\Antigravity", "%LOCALAPPDATA%\Antigravity",
         "%APPDATA%\Cursor\Cache", "%APPDATA%\Cursor\CachedData", "%APPDATA%\Cursor\logs", "%LOCALAPPDATA%\cursor-updater",
@@ -995,28 +1004,19 @@ function Invoke-MyCleanPCCore {
     )
     & $Log "  [AI App Caches] cleared."
 
-    & $Log "-- STEP 2: All Installed Browsers (auto-detect, passwords SAFE) --"
+    & $Log "-- STEP 3: All Installed Browsers (auto-detect, passwords SAFE) --"
     Clear-AllInstalledBrowsers -Log $Log | Out-Null
 
-    & $Log "-- STEP 3: Prefetch (Quick Access / Recent folder NOT touched) --"
+    & $Log "-- STEP 4: Prefetch (Quick Access / Recent folder NOT touched) --"
     foreach ($pf in @(Get-ChildItem "C:\Windows\Prefetch" -Filter "*.pf" -ErrorAction SilentlyContinue)) {
         Remove-SafePathWithRetry -LiteralPath $pf.FullName | Out-Null
     }
     & $Log "  [Prefetch] cleared. Quick Access pins and Recent folder left intact."
 
-    & $Log "-- STEP 4: Temporary Files + Rigorous AppData --"
-    & $Log "  (Robocopy bulk clear - zero Explorer prompts; locked files auto-skip)"
-    Clear-RigorousTempLocations
-    $localCount = Clear-AppDataJunkSweep "%LOCALAPPDATA%"
-    $roamCount = Clear-AppDataJunkSweep "%APPDATA%"
-    & $Log "  [Rigorous Temp + AppData] cleared ($localCount local + $roamCount roaming junk folders)."
-
     & $Log "-- STEP 5: Windows Disk Cleanup (C: drive, Downloads excluded) --"
     Invoke-CleanMgrSilent -Drive 'C:' -Log $Log | Out-Null
 
-    & $Log "-- STEP 6: Recycle Bin and Update Cache --"
-    try { Clear-RecycleBinSilent } catch {}
-    & $Log "  [Recycle Bin] emptied."
+    & $Log "-- STEP 6: Windows Update Cache + Store Temp + INetCache --"
 
     $wuStopped = $false
     if ($ManageWindowsUpdateService) {
