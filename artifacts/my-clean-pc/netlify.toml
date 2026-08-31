@@ -1,17 +1,15 @@
 ﻿[build]
   base    = "artifacts/my-clean-pc"
-  command = "npm install --ignore-scripts && npm run build"
+  command = "npm ci --ignore-scripts && npm run build"
   publish = "dist/public"
 
 [build.environment]
-  NODE_VERSION = "20"
-  NODE_ENV     = "production"
-  PORT         = "19705"
-  BASE_PATH    = "/"
-
-# Required env vars (set in Netlify -> Site configuration -> Environment variables):
-#   RESEND_API_KEY  - get a free key at resend.com
-#   APP_URL         - your Netlify site URL, e.g. https://my-clean-pc.netlify.app
+  NODE_VERSION    = "20"
+  NPM_VERSION     = "10"
+  NODE_ENV        = "production"
+  PORT            = "19705"
+  BASE_PATH       = "/"
+  NETLIFY_USE_YARN = "false"
 
 [functions]
   directory = "netlify/functions"
