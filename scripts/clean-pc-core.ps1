@@ -1,10 +1,21 @@
-# My Clean PC - shared cleaning core (single source of truth)
+﻿# My Clean PC - shared cleaning core (single source of truth)
 # Dot-source from my-clean-pc.ps1, cleanup_task.ps1, etc.
 # Passwords (Login Data, key4.db), autofill data, Downloads, and Quick Access pins are NEVER touched.
 
-$ErrorActionPreference = "SilentlyContinue"
-$ConfirmPreference = "None"
-$ProgressPreference = "SilentlyContinue"
+# ---- Non-interactive bypass: auto-answer Yes/OK/All to any prompt --------
+$ErrorActionPreference  = "SilentlyContinue"
+$ConfirmPreference      = "None"          # suppresses -Confirm on all cmdlets
+$ProgressPreference     = "SilentlyContinue"
+$WarningPreference      = "SilentlyContinue"
+$InformationPreference  = "SilentlyContinue"
+$VerbosePreference      = "SilentlyContinue"
+$DebugPreference        = "SilentlyContinue"
+$WhatIfPreference       = $false          # never dry-run
+# Auto-YES to every PowerShell cmdlet confirmation and force-flag
+$PSDefaultParameterValues["*:Confirm"] = $false
+$PSDefaultParameterValues["*:Force"]   = $true
+$PSDefaultParameterValues["*:WhatIf"]  = $false
+# -------------------------------------------------------------------------
 
 # Paths never deleted (passwords, autofill, Downloads, self-install folder, Quick Access / Explorer shell state)
 $script:SkipPathFragments = @(
