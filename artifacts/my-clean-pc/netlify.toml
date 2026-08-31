@@ -1,20 +1,23 @@
-[build]
-  base      = "."
-  command   = "pnpm install && pnpm --filter @workspace/my-clean-pc run build"
-  publish   = "artifacts/my-clean-pc/dist"
-  functions = "artifacts/my-clean-pc/netlify/functions"
+﻿[build]
+  base    = "artifacts/my-clean-pc"
+  command = "npm install --ignore-scripts && npm run build"
+  publish = "dist/public"
 
 [build.environment]
+  NODE_VERSION = "20"
+  NODE_ENV     = "production"
   PORT         = "19705"
   BASE_PATH    = "/"
-  NODE_VERSION = "20"
 
-# Required env vars (set in Netlify → Site configuration → Environment variables):
-#   RESEND_API_KEY  — get a free key at resend.com
-#   APP_URL         — your Netlify site URL, e.g. https://my-clean-pc.netlify.app
+# Required env vars (set in Netlify -> Site configuration -> Environment variables):
+#   RESEND_API_KEY  - get a free key at resend.com
+#   APP_URL         - your Netlify site URL, e.g. https://my-clean-pc.netlify.app
+
+[functions]
+  directory = "netlify/functions"
 
 [[redirects]]
-  from   = "/.netlify/functions/*"
+  from   = "/api/*"
   to     = "/.netlify/functions/:splat"
   status = 200
 
