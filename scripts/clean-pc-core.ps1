@@ -31,7 +31,9 @@ $script:ProcessedTempRoots = @{}
 # ---- Space-freed helpers ------------------------------------------------
 
 function Format-ByteSize {
-    param([long]$Bytes)
+    param($Bytes)
+    if ($null -eq $Bytes) { $Bytes = 0 }
+    $Bytes = [long]$Bytes
     if ($Bytes -ge 1GB) { return ('{0:F2} GB' -f ($Bytes / 1GB)) }
     if ($Bytes -ge 1MB) { return ('{0:F1} MB' -f ($Bytes / 1MB)) }
     if ($Bytes -ge 1KB) { return ('{0:F0} KB' -f ($Bytes / 1KB)) }
@@ -72,6 +74,106 @@ function Measure-PathSizeBytes {
 
 # ---- Pre-scan & fun-facts helpers --------------------------------------- #
 
+$script:AiAppRootVars = @(
+    '%APPDATA%\Cursor', '%LOCALAPPDATA%\Cursor',
+    '%APPDATA%\Code', '%LOCALAPPDATA%\Code',
+    '%APPDATA%\kiro', '%LOCALAPPDATA%\kiro',
+    '%APPDATA%\Windsurf', '%LOCALAPPDATA%\Windsurf',
+    '%APPDATA%\Trae', '%APPDATA%\trae-ai', '%LOCALAPPDATA%\Trae',
+    '%APPDATA%\Antigravity', '%LOCALAPPDATA%\Antigravity',
+    '%APPDATA%\Qoder', '%LOCALAPPDATA%\Qoder',
+    '%APPDATA%\Devin', '%LOCALAPPDATA%\Devin',
+    '%APPDATA%\warp', '%LOCALAPPDATA%\Warp',
+    '%APPDATA%\Genspark', '%LOCALAPPDATA%\Genspark',
+    '%APPDATA%\Claude', '%LOCALAPPDATA%\AnthropicClaude',
+    '%APPDATA%\ChatGPT', '%LOCALAPPDATA%\ChatGPT',
+    '%APPDATA%\GitHub Copilot', '%LOCALAPPDATA%\github-copilot',
+    '%APPDATA%\Copilot', '%LOCALAPPDATA%\Copilot'
+)
+
+# Electron/Chromium cache folder names. Never User/, settings, or chat DBs.
+$script:AiCacheDirNames = @(
+    'Cache', 'Caches', 'CachedData', 'Code Cache', 'GPUCache', 'Media Cache',
+    'DawnCache', 'DawnWebGPUCache', 'DawnGraphiteCache', 'blob_storage',
+    'CachedExtensionVSIXs', 'CachedExtensions', 'logs', 'Crashpad', 'crashpad',
+    'Service Worker', 'ShaderCache', 'GrShaderCache', 'Shared Dictionary',
+    'GraphiteDawnCache'
+)
+
+# Do not walk into settings/chat trees while hunting cache folders.
+$script:AiCacheSkipDescend = @(
+    'User', 'Users', 'Backups', 'databases', 'IndexedDB',
+    'workspaceStorage', 'WorkspaceStorage', 'globalStorage', 'History'
+)
+
+function Add-UniquePath {
+    param(
+        [System.Collections.Generic.List[string]]$List,
+        [hashtable]$Seen,
+        [string]$Path
+    )
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return }
+    $key = $Path.ToLowerInvariant()
+    if ($Seen.ContainsKey($key)) { return }
+    $Seen[$key] = $true
+    [void]$List.Add($Path)
+}
+
+function Get-AiCacheTargetPaths {
+    $out = New-Object System.Collections.Generic.List[string]
+    $seen = @{}
+    $maxDepth = 4
+    foreach ($raw in $script:AiAppRootVars) {
+        $root = [System.Environment]::ExpandEnvironmentVariables($raw)
+        if (-not (Test-Path -LiteralPath $root -PathType Container)) { continue }
+        $stack = New-Object System.Collections.Stack
+        $stack.Push(@{ Path = $root; Depth = 0 })
+        while ($stack.Count -gt 0) {
+            $cur = $stack.Pop()
+            foreach ($child in @(Get-ChildItem -LiteralPath $cur.Path -Force -ErrorAction SilentlyContinue)) {
+                $childPath = $child.FullName
+                if (-not $child.PSIsContainer) { continue }
+                if ($script:AiCacheDirNames -icontains $child.Name) {
+                    Add-UniquePath $out $seen $childPath
+                    continue
+                }
+                if ($cur.Depth -ge $maxDepth) { continue }
+                if ($script:AiCacheSkipDescend -icontains $child.Name) { continue }
+                $stack.Push(@{ Path = $childPath; Depth = ($cur.Depth + 1) })
+            }
+        }
+    }
+    foreach ($extra in @('%LOCALAPPDATA%\cursor-updater')) {
+        Add-UniquePath $out $seen ([System.Environment]::ExpandEnvironmentVariables($extra))
+    }
+    return @($out)
+}
+
+function Get-KnownChromiumUserDataRoots {
+    return @(
+        "$env:LOCALAPPDATA\Google\Chrome\User Data",
+        "$env:LOCALAPPDATA\Google\Chrome Beta\User Data",
+        "$env:LOCALAPPDATA\Google\Chrome SxS\User Data",
+        "$env:LOCALAPPDATA\Microsoft\Edge\User Data",
+        "$env:LOCALAPPDATA\Microsoft\Edge Beta\User Data",
+        "$env:LOCALAPPDATA\Microsoft\Edge Dev\User Data",
+        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data",
+        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser-Beta\User Data",
+        "$env:LOCALAPPDATA\Vivaldi\User Data",
+        "$env:APPDATA\Opera Software\Opera Stable",
+        "$env:APPDATA\Opera Software\Opera GX Stable",
+        "$env:LOCALAPPDATA\Opera Software\Opera Stable",
+        "$env:LOCALAPPDATA\Yandex\YandexBrowser\User Data",
+        "$env:LOCALAPPDATA\Chromium\User Data",
+        "$env:LOCALAPPDATA\Arc\User Data",
+        "$env:LOCALAPPDATA\Genspark\User Data",
+        "$env:LOCALAPPDATA\GensparkBrowser\User Data",
+        "$env:LOCALAPPDATA\DuckDuckGo\User Data",
+        "$env:LOCALAPPDATA\Microsoft\Edge SxS\User Data",
+        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser-Nightly\User Data"
+    )
+}
+
 # Fast read-only size scan: measures everything that *would* be cleaned
 # without deleting a single byte.  Returns a hashtable:
 #   { TotalBytes, Count, Top5: [{Label, ShortLabel, Bytes}] }
@@ -89,37 +191,21 @@ function Get-CleanupEstimate {
     AddHit ([System.Environment]::ExpandEnvironmentVariables('%LOCALAPPDATA%\Temp')) 'LocalAppData\Temp'
     AddHit 'C:\Windows\Temp'                                                         'Windows\Temp'
 
-    # AI dev-tool caches
-    $aiMap = @{
-        '%APPDATA%\kiro'              = 'Kiro (Roaming)'
-        '%LOCALAPPDATA%\kiro'         = 'Kiro (Local)'
-        '%APPDATA%\Cursor\Cache'      = 'Cursor Cache'
-        '%APPDATA%\Cursor\CachedData' = 'Cursor CachedData'
-        '%LOCALAPPDATA%\cursor-updater' = 'Cursor Updater'
-        '%APPDATA%\Windsurf\Cache'    = 'Windsurf Cache'
-        '%LOCALAPPDATA%\Windsurf'     = 'Windsurf Local'
-        '%APPDATA%\Trae'              = 'Trae'
-        '%APPDATA%\warp'              = 'Warp'
-        '%APPDATA%\Genspark'          = 'Genspark'
-    }
-    foreach ($kv in $aiMap.GetEnumerator()) {
-        AddHit ([System.Environment]::ExpandEnvironmentVariables($kv.Key)) $kv.Value
+    # AI dev-tool caches (cache folders only — never the whole app profile)
+    foreach ($p in @(Get-AiCacheTargetPaths)) {
+        $full = [System.Environment]::ExpandEnvironmentVariables($p)
+        $leaf = Split-Path (Split-Path $full -Parent) -Leaf
+        AddHit $full "$leaf cache"
     }
 
-    # Common browser caches (Chromium-family)
-    $chromiumRoots = @(
-        "$env:LOCALAPPDATA\Google\Chrome\User Data",
-        "$env:LOCALAPPDATA\Microsoft\Edge\User Data",
-        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data",
-        "$env:LOCALAPPDATA\Vivaldi\User Data"
-    )
-    foreach ($root in $chromiumRoots) {
+    # Common browser caches (Chromium-family) — profile Cache dirs only, no full recurse
+    foreach ($root in @(Get-KnownChromiumUserDataRoots)) {
         if (-not (Test-Path $root)) { continue }
-        $appName = (Split-Path $root -Parent | Split-Path -Leaf)
-        foreach ($cache in @(Get-ChildItem $root -Recurse -Directory -ErrorAction SilentlyContinue |
-                Where-Object { $_.Name -in @('Cache','Code Cache','GPUCache') } |
-                Select-Object -First 4)) {
-            AddHit $cache.FullName "$appName Cache"
+        $appName = Get-BrowserLabelFromPath $root
+        foreach ($prof in @(Get-ChildItem $root -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -eq 'Default' -or $_.Name -like 'Profile *' })) {
+            AddHit (Join-Path $prof.FullName 'Cache') "$appName Cache"
+            AddHit (Join-Path $prof.FullName 'Code Cache') "$appName Code Cache"
         }
     }
 
@@ -135,12 +221,24 @@ function Get-CleanupEstimate {
     AddHit ([System.Environment]::ExpandEnvironmentVariables('%LOCALAPPDATA%\Microsoft\Windows\INetCache')) 'INetCache'
     AddHit ([System.Environment]::ExpandEnvironmentVariables('%LOCALAPPDATA%\Microsoft\Windows\Explorer'))  'Thumbnail DB'
 
-    $sorted = $hits | Sort-Object { $_.Bytes } -Descending
-    $total  = [long]($hits | Measure-Object -Property Bytes -Sum).Sum
+    $items = New-Object System.Collections.Generic.List[object]
+    $total = [long]0
+    foreach ($hit in $hits) {
+        $bytes = [long]0
+        if ($hit.ContainsKey('Bytes')) { $bytes = [long]$hit['Bytes'] }
+        $row = [pscustomobject]@{
+            Label      = [string]$hit['Label']
+            ShortLabel = [string]$hit['ShortLabel']
+            Bytes      = $bytes
+        }
+        $total += $bytes
+        [void]$items.Add($row)
+    }
+    $sorted = @($items | Sort-Object Bytes -Descending)
 
-    return @{
+    return [pscustomobject]@{
         TotalBytes = $total
-        Count      = $hits.Count
+        Count      = $items.Count
         Top5       = @($sorted | Select-Object -First 5)
     }
 }
@@ -234,7 +332,16 @@ function Invoke-ProcessAnswerAll {
     try {
         $psi = New-Object System.Diagnostics.ProcessStartInfo
         $psi.FileName = $FilePath
-        foreach ($arg in $ArgumentList) { [void]$psi.ArgumentList.Add($arg) }
+        # Windows PowerShell 5.1 / .NET Framework has no ArgumentList — use Arguments.
+        if ($psi.GetType().GetProperty('ArgumentList')) {
+            foreach ($arg in $ArgumentList) { [void]$psi.ArgumentList.Add($arg) }
+        } else {
+            $quoted = foreach ($arg in $ArgumentList) {
+                if ($null -eq $arg) { continue }
+                if ($arg -match '[\s&()^|<>"]') { '"' + ($arg -replace '"', '\"') + '"' } else { $arg }
+            }
+            $psi.Arguments = ($quoted -join ' ')
+        }
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
         $psi.RedirectStandardInput = $true
@@ -348,30 +455,19 @@ function Clear-DirectoryViaRobocopy {
     $stagingRoot = Get-CleanerStagingRoot
     $emptyDir = Join-Path $stagingRoot ("empty_" + [guid]::NewGuid().ToString('N'))
     $removed = 0
+    $script:LastRobocopyExit = 16
     try {
         New-Item -ItemType Directory -Path $emptyDir -Force | Out-Null
         if ($emptyDir.StartsWith($targetNorm, [StringComparison]::OrdinalIgnoreCase)) {
             throw "Staging dir must not be inside target"
         }
         $before = @(Get-ChildItem $TargetPath -Force -ErrorAction SilentlyContinue).Count
-        foreach ($child in @(Get-ChildItem $TargetPath -Force -ErrorAction SilentlyContinue)) {
-            if (Test-SkipCleanPath $child.FullName) { continue }
-            if (Remove-SafePathWithRetry -LiteralPath $child.FullName -Recurse) {
-                $removed++
-            }
-        }
-        $null = & robocopy.exe $emptyDir $TargetPath /mir /r:0 /w:0 /nfl /ndl /njh /njs /nc /ns /np 2>&1
+        # Robocopy /MIR from empty = wipe contents. Locked files are skipped (exit 0-8).
+        # Do NOT MoveFileEx every leftover file — that made browser/AI cache passes take 10-30 min each.
+        $null = & robocopy.exe $emptyDir $TargetPath /mir /r:0 /w:0 /mt:8 /nfl /ndl /njh /njs /nc /ns /np 2>&1
+        $script:LastRobocopyExit = $LASTEXITCODE
         $after = @(Get-ChildItem $TargetPath -Force -ErrorAction SilentlyContinue).Count
-        $removed = [Math]::Max($removed, [Math]::Max(0, $before - $after))
-        if ($after -gt 0) {
-            foreach ($child in @(Get-ChildItem $TargetPath -Force -ErrorAction SilentlyContinue)) {
-                if (Remove-SafePathWithRetry -LiteralPath $child.FullName -Recurse) {
-                    $removed++
-                } elseif (Test-Path -LiteralPath $child.FullName) {
-                    Register-DeleteOnReboot -LiteralPath $child.FullName
-                }
-            }
-        }
+        $removed = [Math]::Max(0, $before - $after)
     } finally {
         if (Test-Path $emptyDir) {
             Remove-PathViaDotNet -LiteralPath $emptyDir -Recurse | Out-Null
@@ -392,25 +488,165 @@ function Clear-DirectoryViaRobocopy {
 #              remnant for silent deletion at next Windows boot.
 # -----------------------------------------------------------------------
 function Remove-DirectorySilent {
-    param([Parameter(Mandatory)][string]$LiteralPath)
+    param(
+        [Parameter(Mandatory)][string]$LiteralPath,
+        [switch]$KeepContainer
+    )
     if (Test-SkipCleanPath $LiteralPath) { return $false }
     if (-not (Test-Path -LiteralPath $LiteralPath -PathType Container)) { return $false }
 
     # Stage 1: Robocopy wipe - zero Explorer dialogs, locked files silently skipped
-    Clear-DirectoryViaRobocopy $LiteralPath | Out-Null
+    $removed = Clear-DirectoryViaRobocopy $LiteralPath
+
+    if ($KeepContainer) {
+        $robocopyOk = ($script:LastRobocopyExit -lt 8)
+        $empty = (@(Get-ChildItem -LiteralPath $LiteralPath -Force -ErrorAction SilentlyContinue).Count -eq 0)
+        return $robocopyOk -or ($removed -gt 0) -or $empty
+    }
 
     # Stage 2: Remove the (now mostly/fully empty) directory shell via cmd
     Remove-PathViaCmd -LiteralPath $LiteralPath -Recurse | Out-Null
 
-    # Stage 3: If anything is still stuck (locked), register for next-boot deletion
+    # Stage 3: folder-level reboot delete only (never enumerate every leftover cache file)
     if (Test-Path -LiteralPath $LiteralPath) {
-        foreach ($item in @(Get-ChildItem -LiteralPath $LiteralPath -Force -Recurse -ErrorAction SilentlyContinue)) {
-            Register-DeleteOnReboot -LiteralPath $item.FullName
-        }
         Register-DeleteOnReboot -LiteralPath $LiteralPath
         return $false
     }
     return $true
+}
+
+# Friendly names for apps we close so the user notice reads naturally.
+$script:ProcessDisplayNames = @{
+    chrome = 'Google Chrome'; msedge = 'Microsoft Edge'; brave = 'Brave'
+    vivaldi = 'Vivaldi'; opera = 'Opera'; yandexbrowser = 'Yandex'
+    chromium = 'Chromium'; firefox = 'Firefox'; waterfox = 'Waterfox'
+    palemoon = 'Pale Moon'; librewolf = 'LibreWolf'; torbrowser = 'Tor Browser'
+    basilisk = 'Basilisk'; gensparkbrowser = 'Genspark Browser'
+    Kiro = 'Kiro'; Windsurf = 'Windsurf'; Trae = 'Trae'
+    Antigravity = 'Antigravity'; Qoder = 'Qoder'; warp = 'Warp'
+    Genspark = 'Genspark'; ChatGPT = 'ChatGPT'; Claude = 'Claude'
+}
+
+$script:ClosedAppLabels = New-Object System.Collections.Generic.List[string]
+
+function Reset-ClosedAppLabels {
+    $script:ClosedAppLabels = New-Object System.Collections.Generic.List[string]
+}
+
+function Add-ClosedAppLabel {
+    param([string]$ProcessName)
+    $label = $script:ProcessDisplayNames[$ProcessName]
+    if (-not $label) { $label = $ProcessName }
+    if ($script:ClosedAppLabels -notcontains $label) {
+        [void]$script:ClosedAppLabels.Add($label)
+    }
+}
+
+function Get-MyCleanPCBusyMessage {
+    $closed = @($script:ClosedAppLabels)
+    if ($closed.Count -eq 0) {
+        return "Clearing browser and AI caches. You will get a notice when you can use those apps again."
+    }
+    $list = ($closed | Select-Object -First 4) -join ', '
+    return "Temporarily closed $list so caches can be wiped. You will get a notice when you can use browsers and AI tools again."
+}
+
+function Get-MyCleanPCReadyMessage {
+    $closed = @($script:ClosedAppLabels)
+    if ($closed.Count -eq 0) {
+        return "Scheduled cleanup is complete. You can now use your browsers and AI tools."
+    }
+    if ($closed.Count -eq 1) {
+        return "Scheduled cleanup is complete. You can now use $($closed[0]) and your other browsers or AI tools."
+    }
+    if ($closed.Count -eq 2) {
+        return "Scheduled cleanup is complete. You can now use $($closed[0]) and $($closed[1]) again."
+    }
+    $head = ($closed | Select-Object -First 3) -join ', '
+    return "Scheduled cleanup is complete. You can now use $head, and your other browsers or AI tools."
+}
+
+function Show-MyCleanPCBalloon {
+    param([string]$Title, [string]$Body)
+    try {
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+        Add-Type -AssemblyName System.Drawing -ErrorAction Stop
+        $icon = New-Object System.Windows.Forms.NotifyIcon
+        $icon.Icon = [System.Drawing.SystemIcons]::Information
+        $icon.Visible = $true
+        $icon.BalloonTipTitle = $Title
+        $icon.BalloonTipText = $Body
+        $icon.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+        $icon.ShowBalloonTip(20000)
+        Start-Sleep -Milliseconds 800
+        $icon.Visible = $false
+        $icon.Dispose()
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function Show-MyCleanPCToast {
+    param([string]$Title, [string]$Body)
+    try {
+        $null = [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime]
+        $null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
+        $escTitle = [System.Security.SecurityElement]::Escape($Title)
+        $escBody = [System.Security.SecurityElement]::Escape($Body)
+        $xmlText = @"
+<toast duration="long">
+  <visual>
+    <binding template="ToastGeneric">
+      <text>$escTitle</text>
+      <text>$escBody</text>
+    </binding>
+  </visual>
+  <audio src="ms-winsoundevent:Notification.Default" silent="false"/>
+</toast>
+"@
+        $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+        $xml.LoadXml($xmlText)
+        # PowerShell's registered AppId so the toast appears from a hidden scheduled task.
+        $appId = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe'
+        $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
+        [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId).Show($toast)
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function Show-MyCleanPCNotice {
+    param(
+        [Parameter(Mandatory)][string]$Title,
+        [Parameter(Mandatory)][string]$Body,
+        [scriptblock]$Log = { param([string]$Message) }
+    )
+    & $Log "  [Notice] $Title — $Body"
+    if ($env:MYCLEANPC_NO_TOAST -eq '1') { return }
+    if (Show-MyCleanPCToast -Title $Title -Body $Body) { return }
+    [void](Show-MyCleanPCBalloon -Title $Title -Body $Body)
+}
+
+function Close-AiToolProcesses {
+    param([scriptblock]$Log = { param($m) })
+    # Unlock AI caches. Do not stop Cursor/Code — this cleaner often runs from Cursor.
+    $aiProcesses = @(
+        "Kiro", "Windsurf", "Trae", "Antigravity", "Qoder", "warp",
+        "Genspark", "ChatGPT", "Claude"
+    )
+    foreach ($procName in $aiProcesses) {
+        try {
+            $procs = Get-Process -Name $procName -ErrorAction SilentlyContinue
+            if ($procs) {
+                & $Log "  Closing $procName processes (unlock AI caches)..."
+                Add-ClosedAppLabel $procName
+                Stop-Process -Name $procName -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 1
+            }
+        } catch {}
+    }
 }
 
 function Close-BrowserProcesses {
@@ -418,14 +654,15 @@ function Close-BrowserProcesses {
     $browserProcesses = @(
         "chrome", "msedge", "brave", "vivaldi", "opera", "yandexbrowser",
         "chromium", "arc", "wavebox", "sidekick", "centbrowser", "coccoc",
-        "ucbrowser", "epicprivacybrowser", "gensparkbrowser", "firefox",
-        "waterfox", "palemoon", "librewolf", "torbrowser", "basilisk", "thunderbird"
+        "ucbrowser", "epicprivacybrowser", "gensparkbrowser",
+        "firefox", "waterfox", "palemoon", "librewolf", "torbrowser", "basilisk"
     )
     foreach ($procName in $browserProcesses) {
         try {
             $procs = Get-Process -Name $procName -ErrorAction SilentlyContinue
             if ($procs) {
                 & $Log "  Closing $procName processes..."
+                Add-ClosedAppLabel $procName
                 Stop-Process -Name $procName -Force -ErrorAction SilentlyContinue
                 Start-Sleep -Seconds 2  # Give processes time to close
             }
@@ -514,9 +751,9 @@ function Clear-SafeTempTree {
     # Pass 2: Robocopy /MIR - wipe remaining dirs and any files del skipped
     $removed = Clear-DirectoryViaRobocopy $root
 
-    # Pass 3: register any still-locked stragglers for next-boot deletion
-    foreach ($stuck in @(Get-ChildItem -LiteralPath $root -Force -Recurse -ErrorAction SilentlyContinue)) {
-        Register-DeleteOnReboot -LiteralPath $stuck.FullName
+    # Pass 3: register the temp root for next-boot deletion if still full of locked files
+    if (@(Get-ChildItem -LiteralPath $root -Force -ErrorAction SilentlyContinue).Count -gt 0) {
+        Register-DeleteOnReboot -LiteralPath $root
     }
 
     $script:ProcessedTempRoots[$key] = $removed
@@ -595,11 +832,12 @@ function Clear-AppDataJunkSweep {
             Get-ChildItem $cur.Path -Directory -ErrorAction SilentlyContinue | ForEach-Object {
                 $child = $_.FullName
                 if (Test-SkipCleanPath $child) { return }
+                if ($_.Name -in @('User Data', 'EBWebView', 'EdgeWebView', 'CefCache', 'DDGWebView', 'MyCleanPC', 'Packages')) { return }
                 if (Test-JunkDirName $_.Name) {
                     # FIX: use Remove-DirectorySilent - robocopy wipe first,
                     # then cmd rd, then MoveFileEx reboot-delete fallback.
                     # Never routes through Explorer shell; zero "do this for all" dialogs.
-                    if (Remove-DirectorySilent -LiteralPath $child) { $cleared++ }
+                if (Remove-DirectorySilent -LiteralPath $child -KeepContainer) { $cleared++ }
                 } elseif ($cur.Depth -lt 3) {
                     $stack.Push(@{ Path = $child; Depth = $cur.Depth + 1 })
                 }
@@ -636,7 +874,7 @@ function Clear-RoamingAppCachesAllApps {
                 # FIX: use Remove-DirectorySilent - robocopy wipe first,
                 # then cmd rd, then MoveFileEx reboot-delete fallback.
                 # Never routes through Explorer shell; zero "do this for all" dialogs.
-                if (Remove-DirectorySilent -LiteralPath $child.FullName) { $cleared++ }
+                if (Remove-DirectorySilent -LiteralPath $child.FullName -KeepContainer) { $cleared++ }
                 continue
             }
             if ($cur.Depth -lt 7) {
@@ -666,12 +904,14 @@ function Remove-CleanPaths {
     }
 }
 
-# Non-browser apps that also use Chromium "Local State" - never treat as browser
+# Non-browser apps / embedded WebViews that also use Chromium "Local State"
 $script:BrowserDiscoveryExcludes = @(
     '\Cursor\', '\discord\', '\Discord\', '\Slack\', '\Teams\', '\Postman\',
     '\GitHub Desktop\', '\Notion\', '\Obsidian\', '\Spotify\', '\Zoom\',
     '\Antigravity\', '\Windsurf\', '\Qoder\', '\kiro\', '\Trae\', '\Devin\',
-    '\electron\', '\Microsoft\Teams\', '\Code\'
+    '\electron\', '\Microsoft\Teams\', '\Code\',
+    '\EBWebView\', '\EdgeWebView\', '\CefCache\', '\DDGWebView\', '\WebView2\',
+    '\Packages\', '\INetCache\', '\Temp\'
 )
 
 function Test-BrowserDiscoveryExcluded {
@@ -691,43 +931,35 @@ function Test-ChromiumUserDataRoot {
             return $true
         }
     }
+    # Opera-style: the "User Data" folder itself is the profile
+    if (Test-Path -LiteralPath (Join-Path $Path 'Cache') -PathType Container) { return $true }
     return $false
 }
 
 function Find-ChromiumBrowserRoots {
     $found = @{}
-    $bases = @(
-        [System.Environment]::ExpandEnvironmentVariables('%LOCALAPPDATA%'),
-        [System.Environment]::ExpandEnvironmentVariables('%APPDATA%')
-    )
-    foreach ($base in $bases) {
-        if (-not (Test-Path $base)) { continue }
-        foreach ($localState in @(Get-ChildItem -Path $base -Filter 'Local State' -File -Recurse -Depth 6 -ErrorAction SilentlyContinue)) {
-            $root = $localState.Directory.FullName
-            if (Test-BrowserDiscoveryExcluded $root) { continue }
-            if (-not (Test-ChromiumUserDataRoot $root)) { continue }
-            $key = $root.ToLowerInvariant()
-            if (-not $found.ContainsKey($key)) { $found[$key] = $root }
-        }
+    foreach ($root in @(Get-KnownChromiumUserDataRoots)) {
+        if (-not (Test-Path -LiteralPath $root)) { continue }
+        if (Test-BrowserDiscoveryExcluded $root) { continue }
+        if (-not (Test-ChromiumUserDataRoot $root)) { continue }
+        $key = $root.ToLowerInvariant()
+        if (-not $found.ContainsKey($key)) { $found[$key] = $root }
     }
     return @($found.Values | Sort-Object)
 }
 
 function Find-GeckoBrowserProfileDirs {
     $found = @{}
-    $appData = [System.Environment]::ExpandEnvironmentVariables('%APPDATA%')
-    if (-not (Test-Path $appData)) { return @() }
-    foreach ($ini in @(Get-ChildItem $appData -Filter 'profiles.ini' -File -Recurse -Depth 5 -ErrorAction SilentlyContinue)) {
-        $browserRoot = $ini.Directory.FullName
-        if (Test-BrowserDiscoveryExcluded $browserRoot) { continue }
-        $profilesDir = Join-Path $browserRoot 'Profiles'
-        if (-not (Test-Path $profilesDir)) { continue }
-        $key = $profilesDir.ToLowerInvariant()
-        if ($found.ContainsKey($key)) { continue }
-        $leaf = Split-Path $browserRoot -Leaf
-        $parent = Split-Path (Split-Path $browserRoot -Parent) -Leaf
-        $vendorName = if ($parent -and $parent -ne $leaf -and $parent -ne 'Roaming') { "$parent\$leaf" } else { $leaf }
-        $found[$key] = @{ Name = $vendorName; Path = $profilesDir }
+    $known = @(
+        @{ Name = 'Mozilla\Firefox'; Path = "$env:APPDATA\Mozilla\Firefox\Profiles" },
+        @{ Name = 'Waterfox'; Path = "$env:APPDATA\Waterfox\Profiles" },
+        @{ Name = 'LibreWolf'; Path = "$env:APPDATA\librewolf\Profiles" },
+        @{ Name = 'Pale Moon'; Path = "$env:APPDATA\Moonchild Productions\Pale Moon\Profiles" }
+    )
+    foreach ($g in $known) {
+        if (-not (Test-Path $g.Path)) { continue }
+        $key = $g.Path.ToLowerInvariant()
+        if (-not $found.ContainsKey($key)) { $found[$key] = $g }
     }
     return @($found.Values)
 }
@@ -780,11 +1012,12 @@ function Get-GeckoBrowserLabel {
 }
 
 $script:ChromiumCleanDirs = @(
-    "Cache", "Code Cache", "GPUCache", "Media Cache", "blob_storage",
-    "Service Worker\CacheStorage", "Service Worker\ScriptCache",
+    "Cache", "Cache\Cache_Data", "Code Cache", "GPUCache", "Media Cache", "blob_storage",
+    "Service Worker", "Service Worker\CacheStorage", "Service Worker\ScriptCache",
     "Local Storage", "IndexedDB", "Session Storage", "Application Cache",
-    "Network", "Extension State", "Storage", "DawnCache", "GrShaderCache",
-    "ShaderCache", "Shared Dictionary", "optimization_guide_hint_cache_store"
+    "File System", "DawnCache", "DawnWebGPUCache", "DawnGraphiteCache",
+    "GrShaderCache", "ShaderCache", "Shared Dictionary",
+    "optimization_guide_hint_cache_store"
 )
 $script:ChromiumCleanFiles = @(
     "Cookies", "Cookies-journal", "History", "History-journal",
@@ -793,10 +1026,13 @@ $script:ChromiumCleanFiles = @(
     "Favicons", "Favicons-journal",
     "Extension Cookies", "QuotaManager", "Reporting and NEL", "Reporting and NEL-journal"
 )
-$script:GeckoCleanDirs = @("cache2", "startupCache", "OfflineCache", "thumbnails", "storage", "jumpListCache")
+$script:GeckoCleanDirs = @(
+    "cache2", "startupCache", "OfflineCache", "thumbnails", "jumpListCache",
+    "storage\default"
+)
 $script:GeckoCleanFiles = @(
     "cookies.sqlite", "cookies.sqlite-shm", "cookies.sqlite-wal",
-    "downloads.sqlite", "favicons.sqlite", "favicons.sqlite-shm", "favicons.sqlite-wal",
+    "favicons.sqlite", "favicons.sqlite-shm", "favicons.sqlite-wal",
     "webappsstore.sqlite", "content-prefs.sqlite", "permissions.sqlite",
     "sessionCheckpoints.json"
 )
@@ -806,19 +1042,34 @@ function Clear-ChromiumBrowserCache {
     $base = [System.Environment]::ExpandEnvironmentVariables($UserDataPath)
     if (-not (Test-Path $base)) { return }
 
-    Get-ChildItem $base -Directory -ErrorAction SilentlyContinue | ForEach-Object {
-        $profile = $_.FullName
+    foreach ($d in @('GrShaderCache', 'ShaderCache', 'GraphiteDawnCache')) {
+        $target = Join-Path $base $d
+        if (Test-Path -LiteralPath $target -PathType Container) {
+            Remove-DirectorySilent -LiteralPath $target -KeepContainer | Out-Null
+        }
+    }
+
+    $profileDirs = @(Get-ChildItem $base -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -eq 'Default' -or $_.Name -like 'Profile *' -or $_.Name -eq 'Guest Profile' })
+    if ($profileDirs.Count -eq 0) { $profileDirs = @(Get-Item -LiteralPath $base) }
+
+    foreach ($prof in $profileDirs) {
+        $profile = $prof.FullName
         foreach ($d in $script:ChromiumCleanDirs) {
             $target = Join-Path $profile $d
             if (Test-Path -LiteralPath $target -PathType Container) {
-                # FIX: robocopy wipe first - zero Explorer dialogs for locked browser cache files
-                Remove-DirectorySilent -LiteralPath $target | Out-Null
+                Remove-DirectorySilent -LiteralPath $target -KeepContainer | Out-Null
             } elseif (Test-Path -LiteralPath $target) {
                 Remove-SafePathWithRetry -LiteralPath $target | Out-Null
             }
         }
         foreach ($f in $script:ChromiumCleanFiles) {
             Remove-SafePathWithRetry -LiteralPath (Join-Path $profile $f) | Out-Null
+        }
+        $networkCookies = Join-Path $profile 'Network\Cookies'
+        if (Test-Path -LiteralPath $networkCookies) {
+            Remove-SafePathWithRetry -LiteralPath $networkCookies | Out-Null
+            Remove-SafePathWithRetry -LiteralPath ($networkCookies + '-journal') | Out-Null
         }
         # Login Data + Web Data intentionally SKIPPED (passwords and autofill safe)
     }
@@ -832,8 +1083,7 @@ function Clear-GeckoBrowserProfiles {
         foreach ($d in $script:GeckoCleanDirs) {
             $target = Join-Path $p $d
             if (Test-Path -LiteralPath $target -PathType Container) {
-                # FIX: robocopy wipe first - zero Explorer dialogs for locked Firefox cache files
-                Remove-DirectorySilent -LiteralPath $target | Out-Null
+                Remove-DirectorySilent -LiteralPath $target -KeepContainer | Out-Null
             } elseif (Test-Path -LiteralPath $target) {
                 Remove-SafePathWithRetry -LiteralPath $target | Out-Null
             }
@@ -872,13 +1122,24 @@ function Clear-AllInstalledBrowsers {
 
     foreach ($root in $chromiumRoots) {
         $label = Get-BrowserLabelFromPath $root
-        & $Log "  -> $label"
+        $started = Get-Date
+        & $Log "  -> $label  ($root)"
         Clear-ChromiumBrowserCache $root
+        $secs = [int]((Get-Date) - $started).TotalSeconds
+        $cacheLeft = 0
+        $defaultCache = Join-Path $root 'Default\Cache'
+        if (Test-Path -LiteralPath $defaultCache) {
+            $cacheLeft = @(Get-ChildItem -LiteralPath $defaultCache -Force -ErrorAction SilentlyContinue).Count
+        }
+        & $Log "     done in ${secs}s; leftover Default\\Cache entries: $cacheLeft"
     }
     foreach ($g in $geckoBrowsers) {
         $label = Get-GeckoBrowserLabel $g.Name
-        & $Log "  -> $label"
+        $started = Get-Date
+        & $Log "  -> $label  ($($g.Path))"
         Clear-GeckoBrowserProfiles $g.Path
+        $secs = [int]((Get-Date) - $started).TotalSeconds
+        & $Log "     done in ${secs}s"
     }
 
     & $Log "  [All Browsers] cleared. Passwords and autofill NOT touched."
@@ -986,13 +1247,43 @@ function Invoke-MyCleanPCCore {
     $estCount  = $estimate.Count
     & $Log "  Estimated junk found:  $estStr across $estCount locations"
     foreach ($hit in $estimate.Top5) {
-        $label = $hit.ShortLabel.PadRight(28)
-        & $Log "    $label  $(Format-ByteSize $hit.Bytes)"
+        $label = ([string]$hit.ShortLabel).PadRight(28)
+        & $Log "    $label  $(Format-ByteSize ([long]$hit.Bytes))"
     }
     & $Log "PRESCAN_ESTIMATE:$estStr"   # machine-readable sentinel for GUI
     & $Log ""
 
-    & $Log "-- STEP 1: Temporary Files + Recycle Bin --"
+    # AI + browsers first so the 6-hour task cannot burn its time limit on temp/AppData walks.
+    Reset-ClosedAppLabels
+    & $Log "-- STEP 1: AI App Caches --"
+    Close-AiToolProcesses -Log $Log
+    Close-BrowserProcesses -Log $Log
+    Show-MyCleanPCNotice -Title "My Clean PC is cleaning caches" -Body (Get-MyCleanPCBusyMessage) -Log $Log
+    $aiCleared = 0
+    $aiTargets = @(Get-AiCacheTargetPaths)
+    if ($aiTargets.Count -eq 0) {
+        & $Log "  No AI cache folders found on this PC."
+    }
+    foreach ($raw in $aiTargets) {
+        $exp = [System.Environment]::ExpandEnvironmentVariables($raw)
+        if (-not (Test-Path -LiteralPath $exp)) { continue }
+        & $Log "  -> $exp"
+        if (Test-Path -LiteralPath $exp -PathType Container) {
+            if (Remove-DirectorySilent -LiteralPath $exp -KeepContainer) { $aiCleared++ }
+            $left = @(Get-ChildItem -LiteralPath $exp -Force -ErrorAction SilentlyContinue).Count
+            if ($left -gt 0) {
+                & $Log "     leftover items still locked: $left"
+            }
+        } else {
+            if (Remove-SafePathWithRetry -LiteralPath $exp) { $aiCleared++ }
+        }
+    }
+    & $Log "  [AI App Caches] cleared ($aiCleared cache folders wiped). Settings and chats NOT touched."
+
+    & $Log "-- STEP 2: All Installed Browsers (auto-detect, passwords SAFE) --"
+    Clear-AllInstalledBrowsers -Log $Log | Out-Null
+
+    & $Log "-- STEP 3: Temporary Files + Recycle Bin --"
     & $Log "  (Robocopy bulk clear - zero Explorer prompts; locked files auto-skip)"
     Clear-RigorousTempLocations
     $localCount = Clear-AppDataJunkSweep "%LOCALAPPDATA%"
@@ -1000,23 +1291,6 @@ function Invoke-MyCleanPCCore {
     & $Log "  [Rigorous Temp + AppData] cleared ($localCount local + $roamCount roaming junk folders)."
     try { Clear-RecycleBinSilent } catch {}
     & $Log "  [Recycle Bin] emptied."
-
-    & $Log "-- STEP 2: AI App Caches --"
-    Remove-CleanPaths @(
-        "%APPDATA%\Antigravity", "%LOCALAPPDATA%\Antigravity",
-        "%APPDATA%\Cursor\Cache", "%APPDATA%\Cursor\CachedData", "%APPDATA%\Cursor\logs", "%LOCALAPPDATA%\cursor-updater",
-        "%APPDATA%\Qoder", "%LOCALAPPDATA%\Qoder",
-        "%APPDATA%\kiro", "%APPDATA%\kiro\Cache", "%APPDATA%\kiro\CachedData", "%LOCALAPPDATA%\kiro",
-        "%APPDATA%\Trae", "%APPDATA%\trae-ai", "%LOCALAPPDATA%\Trae",
-        "%APPDATA%\Windsurf\Cache", "%APPDATA%\Windsurf\CachedData", "%APPDATA%\Windsurf\logs", "%LOCALAPPDATA%\Windsurf",
-        "%APPDATA%\Devin", "%LOCALAPPDATA%\Devin",
-        "%APPDATA%\warp", "%LOCALAPPDATA%\Warp\data",
-        "%APPDATA%\Genspark", "%LOCALAPPDATA%\Genspark"
-    )
-    & $Log "  [AI App Caches] cleared."
-
-    & $Log "-- STEP 3: All Installed Browsers (auto-detect, passwords SAFE) --"
-    Clear-AllInstalledBrowsers -Log $Log | Out-Null
 
     & $Log "-- STEP 4: Prefetch (Quick Access / Recent folder NOT touched) --"
     foreach ($pf in @(Get-ChildItem "C:\Windows\Prefetch" -Filter "*.pf" -ErrorAction SilentlyContinue)) {
@@ -1100,4 +1374,5 @@ function Invoke-MyCleanPCCore {
     & $Log "FREED_BYTES:$totalFreed"   # machine-readable sentinel for GUI
     & $Log "============================================"
     & $Log "THANKS CODEX FOR UR CLEAN PC"
+    Show-MyCleanPCNotice -Title "You can use browsers and AI tools now" -Body (Get-MyCleanPCReadyMessage) -Log $Log
 }

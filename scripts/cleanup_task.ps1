@@ -21,6 +21,14 @@ function Write-Log {
     Add-Content -Path $logFile -Value "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $Message" -ErrorAction SilentlyContinue
 }
 
-Write-Log "===== Cleanup Started ====="
-Invoke-MyCleanPCCore -Log { param([string]$Message) Write-Log $Message } -ManageWindowsUpdateService
-Write-Log "===== Cleanup Finished ====="
+try {
+    Write-Log "===== Cleanup Started ====="
+    Invoke-MyCleanPCCore -Log { param([string]$Message) Write-Log $Message } -ManageWindowsUpdateService
+    Write-Log "===== Cleanup Finished ====="
+} catch {
+    Write-Log "===== Cleanup FAILED: $($_.Exception.Message) ====="
+    try {
+        Show-MyCleanPCNotice -Title "My Clean PC stopped" -Body "Cleanup did not finish. You can still use your browsers and AI tools." -Log { param([string]$Message) Write-Log $Message }
+    } catch {}
+    exit 1
+}
