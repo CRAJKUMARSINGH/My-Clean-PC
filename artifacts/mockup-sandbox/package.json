@@ -4,8 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
+    "dev": "node ../../scripts/sync-cleaners.mjs && vite dev",
+    "build": "node ../../scripts/sync-cleaners.mjs && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
