@@ -77,12 +77,12 @@ function Measure-PathSizeBytes {
 $script:AiAppRootVars = @(
     '%APPDATA%\Cursor', '%LOCALAPPDATA%\Cursor',
     '%APPDATA%\Code', '%LOCALAPPDATA%\Code',
-    '%APPDATA%\kiro', '%LOCALAPPDATA%\kiro',
+    '%APPDATA%\kiro', '%APPDATA%\Kiro', '%LOCALAPPDATA%\kiro', '%LOCALAPPDATA%\Kiro',
     '%APPDATA%\Windsurf', '%LOCALAPPDATA%\Windsurf',
     '%APPDATA%\Trae', '%APPDATA%\trae-ai', '%LOCALAPPDATA%\Trae',
-    '%APPDATA%\Antigravity', '%LOCALAPPDATA%\Antigravity',
-    '%APPDATA%\Qoder', '%LOCALAPPDATA%\Qoder',
-    '%APPDATA%\Devin', '%LOCALAPPDATA%\Devin',
+    '%APPDATA%\Antigravity', '%APPDATA%\Antigravity IDE', '%LOCALAPPDATA%\Antigravity', '%LOCALAPPDATA%\Antigravity IDE',
+    '%APPDATA%\Qoder', '%APPDATA%\Qoder IDE', '%LOCALAPPDATA%\Qoder', '%LOCALAPPDATA%\Qoder IDE',
+    '%APPDATA%\Devin', '%LOCALAPPDATA%\Devin', '%LOCALAPPDATA%\devin',
     '%APPDATA%\warp', '%LOCALAPPDATA%\Warp',
     '%APPDATA%\Genspark', '%LOCALAPPDATA%\Genspark',
     '%APPDATA%\Claude', '%LOCALAPPDATA%\AnthropicClaude',
@@ -622,7 +622,7 @@ $script:ProcessDisplayNames = @{
     duckduckgo = 'DuckDuckGo'; whale = 'Naver Whale'; maxthon = 'Maxthon'
     thorium = 'Thorium'; floorp = 'Floorp'; zen = 'Zen Browser'
     Kiro = 'Kiro'; Windsurf = 'Windsurf'; Trae = 'Trae'
-    Antigravity = 'Antigravity'; Qoder = 'Qoder'; warp = 'Warp'
+    'Antigravity IDE' = 'Antigravity IDE'; Antigravity = 'Antigravity IDE'; 'Qoder IDE' = 'Qoder IDE'; Qoder = 'Qoder IDE'; warp = 'Warp'
     Genspark = 'Genspark'; ChatGPT = 'ChatGPT'; Claude = 'Claude'
 }
 
