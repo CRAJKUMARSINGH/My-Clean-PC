@@ -112,11 +112,24 @@ function Add-UniquePath {
         [hashtable]$Seen,
         [string]$Path
     )
-    if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return }
+    if (-not $Path) { return }
+    try {
+        if (-not (Test-Path -LiteralPath $Path -ErrorAction Stop)) { return }
+    } catch { return }
     $key = $Path.ToLowerInvariant()
     if ($Seen.ContainsKey($key)) { return }
     $Seen[$key] = $true
     [void]$List.Add($Path)
+}
+
+function Test-UsableDirectory {
+    param([string]$LiteralPath)
+    if (-not $LiteralPath) { return $false }
+    try {
+        return [bool](Test-Path -LiteralPath $LiteralPath -PathType Container -ErrorAction Stop)
+    } catch {
+        return $false
+    }
 }
 
 function Get-AiCacheTargetPaths {
@@ -149,29 +162,106 @@ function Get-AiCacheTargetPaths {
     return @($out)
 }
 
+function Get-AllUserAppDataRoots {
+    $out = New-Object System.Collections.Generic.List[hashtable]
+    $seen = @{}
+    function AddAppDataPair([string]$Local, [string]$Roaming) {
+        $key = "$Local|$Roaming".ToLowerInvariant()
+        if ($seen.ContainsKey($key)) { return }
+        $seen[$key] = $true
+        [void]$out.Add(@{ Local = $Local; Roaming = $Roaming })
+    }
+    AddAppDataPair $env:LOCALAPPDATA $env:APPDATA
+    $usersRoot = $null
+    try { $usersRoot = [System.IO.Directory]::GetParent($env:USERPROFILE).FullName } catch {}
+    if (-not $usersRoot) { $usersRoot = 'C:\Users' }
+    foreach ($dir in @(Get-ChildItem -LiteralPath $usersRoot -Directory -ErrorAction SilentlyContinue)) {
+        if ($dir.Name -in @('Public', 'Default', 'Default User', 'All Users')) { continue }
+        $local = Join-Path $dir.FullName 'AppData\Local'
+        $roaming = Join-Path $dir.FullName 'AppData\Roaming'
+        if (-not (Test-UsableDirectory $local) -and -not (Test-UsableDirectory $roaming)) { continue }
+        AddAppDataPair $local $roaming
+    }
+    return @($out)
+}
+
+$script:ChromiumUserDataRelativeLocal = @(
+    'Google\Chrome\User Data',
+    'Google\Chrome Beta\User Data',
+    'Google\Chrome Dev\User Data',
+    'Google\Chrome SxS\User Data',
+    'Google\Chrome for Testing\User Data',
+    'Google\Chrome for Testing\chrome-user-data',
+    'Microsoft\Edge\User Data',
+    'Microsoft\Edge Beta\User Data',
+    'Microsoft\Edge Dev\User Data',
+    'Microsoft\Edge SxS\User Data',
+    'BraveSoftware\Brave-Browser\User Data',
+    'BraveSoftware\Brave-Browser-Beta\User Data',
+    'BraveSoftware\Brave-Browser-Nightly\User Data',
+    'Vivaldi\User Data',
+    'Yandex\YandexBrowser\User Data',
+    'Chromium\User Data',
+    'Arc\User Data',
+    'Genspark\User Data',
+    'GensparkBrowser\User Data',
+    'GensparkSoftware\Genspark-Browser\User Data',
+    'DuckDuckGo\User Data',
+    'Opera Software\Opera Stable',
+    'Opera Software\Opera GX Stable',
+    'Opera Software\Opera Air Stable',
+    'Opera Software\Opera Neon',
+    'Opera Software\Opera Developer',
+    'Opera Software\Opera Next',
+    'CocCoc\Browser\User Data',
+    'UCBrowser\User Data\UCBrowser',
+    'UCBrowser\User Data',
+    'CentBrowser\User Data',
+    'Epic Privacy Browser\User Data',
+    'Sidekick\User Data',
+    'WaveboxApp\Wavebox\User Data',
+    'Wavebox\User Data',
+    'Iridium\User Data',
+    'Thorium\User Data',
+    'ungoogled-chromium\User Data',
+    'Slimjet\User Data',
+    'Comodo\Dragon\User Data',
+    'Comodo\User Data',
+    'AVAST Software\Browser\User Data',
+    'AVG\Browser\User Data',
+    'CCleaner Browser\User Data',
+    'Norton\Navigator\User Data',
+    'Naver\Naver Whale\User Data',
+    'Maxthon\Application\User Data',
+    'Maxthon5\User Data',
+    '360Chrome\Chrome\User Data',
+    '360Browser\Browser\User Data',
+    'DuckDuckGo\DuckDuckGo\User Data',
+    'Comet\User Data',
+    'Island\User Data'
+)
+
+$script:ChromiumUserDataRelativeRoaming = @(
+    'Opera Software\Opera Stable',
+    'Opera Software\Opera GX Stable',
+    'Opera Software\Opera Air Stable',
+    'Opera Software\Opera Neon',
+    'Opera Software\Opera Developer',
+    'Opera Software\Opera Next'
+)
+
 function Get-KnownChromiumUserDataRoots {
-    return @(
-        "$env:LOCALAPPDATA\Google\Chrome\User Data",
-        "$env:LOCALAPPDATA\Google\Chrome Beta\User Data",
-        "$env:LOCALAPPDATA\Google\Chrome SxS\User Data",
-        "$env:LOCALAPPDATA\Microsoft\Edge\User Data",
-        "$env:LOCALAPPDATA\Microsoft\Edge Beta\User Data",
-        "$env:LOCALAPPDATA\Microsoft\Edge Dev\User Data",
-        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data",
-        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser-Beta\User Data",
-        "$env:LOCALAPPDATA\Vivaldi\User Data",
-        "$env:APPDATA\Opera Software\Opera Stable",
-        "$env:APPDATA\Opera Software\Opera GX Stable",
-        "$env:LOCALAPPDATA\Opera Software\Opera Stable",
-        "$env:LOCALAPPDATA\Yandex\YandexBrowser\User Data",
-        "$env:LOCALAPPDATA\Chromium\User Data",
-        "$env:LOCALAPPDATA\Arc\User Data",
-        "$env:LOCALAPPDATA\Genspark\User Data",
-        "$env:LOCALAPPDATA\GensparkBrowser\User Data",
-        "$env:LOCALAPPDATA\DuckDuckGo\User Data",
-        "$env:LOCALAPPDATA\Microsoft\Edge SxS\User Data",
-        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser-Nightly\User Data"
-    )
+    $out = New-Object System.Collections.Generic.List[string]
+    $seen = @{}
+    foreach ($pair in @(Get-AllUserAppDataRoots)) {
+        foreach ($rel in $script:ChromiumUserDataRelativeLocal) {
+            Add-UniquePath $out $seen (Join-Path $pair.Local $rel)
+        }
+        foreach ($rel in $script:ChromiumUserDataRelativeRoaming) {
+            Add-UniquePath $out $seen (Join-Path $pair.Roaming $rel)
+        }
+    }
+    return @($out)
 }
 
 # Fast read-only size scan: measures everything that *would* be cleaned
@@ -194,26 +284,32 @@ function Get-CleanupEstimate {
     # AI dev-tool caches (cache folders only — never the whole app profile)
     foreach ($p in @(Get-AiCacheTargetPaths)) {
         $full = [System.Environment]::ExpandEnvironmentVariables($p)
-        $leaf = Split-Path (Split-Path $full -Parent) -Leaf
+        $leaf = 'AI'
+        $parent = if ($full) { Split-Path $full -Parent } else { $null }
+        if ($parent) {
+            $parentLeaf = Split-Path $parent -Leaf
+            if ($parentLeaf) { $leaf = $parentLeaf }
+        }
         AddHit $full "$leaf cache"
     }
 
     # Common browser caches (Chromium-family) — profile Cache dirs only, no full recurse
-    foreach ($root in @(Get-KnownChromiumUserDataRoots)) {
-        if (-not (Test-Path $root)) { continue }
+    foreach ($root in @(Find-ChromiumBrowserRoots)) {
+        if (-not $root -or -not (Test-UsableDirectory $root)) { continue }
         $appName = Get-BrowserLabelFromPath $root
-        foreach ($prof in @(Get-ChildItem $root -Directory -ErrorAction SilentlyContinue |
-                Where-Object { $_.Name -eq 'Default' -or $_.Name -like 'Profile *' })) {
+        foreach ($prof in @(Get-ChromiumProfileDirectories $root)) {
             AddHit (Join-Path $prof.FullName 'Cache') "$appName Cache"
             AddHit (Join-Path $prof.FullName 'Code Cache') "$appName Code Cache"
+            AddHit (Join-Path $prof.FullName 'System Cache') "$appName System Cache"
         }
     }
 
-    # Firefox
-    $ffBase = "$env:APPDATA\Mozilla\Firefox\Profiles"
-    if (Test-Path $ffBase) {
-        foreach ($prof in @(Get-ChildItem $ffBase -Directory -ErrorAction SilentlyContinue)) {
-            AddHit (Join-Path $prof.FullName 'cache2') 'Firefox Cache'
+    foreach ($g in @(Find-GeckoBrowserProfileDirs)) {
+        $label = Get-GeckoBrowserLabel $g.Name
+        if (Test-Path $g.Path) {
+            foreach ($prof in @(Get-ChildItem $g.Path -Directory -ErrorAction SilentlyContinue)) {
+                AddHit (Join-Path $prof.FullName 'cache2') "$label Cache"
+            }
         }
     }
 
@@ -518,52 +614,201 @@ function Remove-DirectorySilent {
 # Friendly names for apps we close so the user notice reads naturally.
 $script:ProcessDisplayNames = @{
     chrome = 'Google Chrome'; msedge = 'Microsoft Edge'; brave = 'Brave'
-    vivaldi = 'Vivaldi'; opera = 'Opera'; yandexbrowser = 'Yandex'
+    vivaldi = 'Vivaldi'; opera = 'Opera'; yandexbrowser = 'Yandex'; browser = 'Yandex'
     chromium = 'Chromium'; firefox = 'Firefox'; waterfox = 'Waterfox'
     palemoon = 'Pale Moon'; librewolf = 'LibreWolf'; torbrowser = 'Tor Browser'
     basilisk = 'Basilisk'; gensparkbrowser = 'Genspark Browser'
+    arc = 'Arc Browser'; wavebox = 'Wavebox'; sidekick = 'Sidekick'
+    duckduckgo = 'DuckDuckGo'; whale = 'Naver Whale'; maxthon = 'Maxthon'
+    thorium = 'Thorium'; floorp = 'Floorp'; zen = 'Zen Browser'
     Kiro = 'Kiro'; Windsurf = 'Windsurf'; Trae = 'Trae'
     Antigravity = 'Antigravity'; Qoder = 'Qoder'; warp = 'Warp'
     Genspark = 'Genspark'; ChatGPT = 'ChatGPT'; Claude = 'Claude'
 }
 
 $script:ClosedAppLabels = New-Object System.Collections.Generic.List[string]
+$script:CleanedBrowserLabels = New-Object System.Collections.Generic.List[string]
+$script:ClosedAppRestarts = New-Object System.Collections.Generic.List[hashtable]
+$script:RestartedAppLabels = New-Object System.Collections.Generic.List[string]
+$script:RestartSkipProcessNames = @(
+    'chrome_proxy', 'chrome_crashpad', 'crashpad_handler', 'software_reporter_tool',
+    'elevation_service', 'msedgewebview2', 'MicrosoftEdgeUpdate', 'GoogleUpdate',
+    'GoogleCrashHandler', 'GoogleCrashHandler64'
+)
 
 function Reset-ClosedAppLabels {
     $script:ClosedAppLabels = New-Object System.Collections.Generic.List[string]
+    $script:CleanedBrowserLabels = New-Object System.Collections.Generic.List[string]
+    $script:ClosedAppRestarts = New-Object System.Collections.Generic.List[hashtable]
+    $script:RestartedAppLabels = New-Object System.Collections.Generic.List[string]
+}
+
+function Add-CleanedBrowserLabel {
+    param([string]$Label)
+    if (-not $Label) { return }
+    if ($script:CleanedBrowserLabels -notcontains $Label) {
+        [void]$script:CleanedBrowserLabels.Add($Label)
+    }
+}
+
+function Test-RestartableClosedProcessName {
+    param([string]$Name)
+    if (-not $Name) { return $false }
+    $n = $Name.Trim() -replace '\.exe$', ''
+    if (-not $n) { return $false }
+    if ($script:RestartSkipProcessNames -contains $n) { return $false }
+    if ($n -match '(?i)(proxy|crashpad|webview|update|handler)$') { return $false }
+    return $true
+}
+
+function Get-ClosedAppDisplayName {
+    param([string]$ProcessName)
+    $label = $script:ProcessDisplayNames[$ProcessName]
+    if ($label) { return $label }
+    return $ProcessName
 }
 
 function Add-ClosedAppLabel {
     param([string]$ProcessName)
-    $label = $script:ProcessDisplayNames[$ProcessName]
-    if (-not $label) { $label = $ProcessName }
+    if (-not (Test-RestartableClosedProcessName $ProcessName)) { return }
+    $label = Get-ClosedAppDisplayName $ProcessName
     if ($script:ClosedAppLabels -notcontains $label) {
         [void]$script:ClosedAppLabels.Add($label)
+    }
+}
+
+function Get-MainProcessExecutable {
+    param([string]$ProcessName)
+    if (-not $ProcessName) { return $null }
+    $leaf = $ProcessName.Trim() -replace '\.exe$', ''
+    foreach ($p in @(Get-Process -Name $leaf -ErrorAction SilentlyContinue)) {
+        if ($p.Path -and (Test-Path -LiteralPath $p.Path)) { return $p.Path }
+    }
+    try {
+        $cim = @(Get-CimInstance -ClassName Win32_Process -Filter "Name='$leaf.exe'" -ErrorAction SilentlyContinue)
+        foreach ($row in $cim) {
+            if ($row.ExecutablePath -and (Test-Path -LiteralPath $row.ExecutablePath)) {
+                return $row.ExecutablePath
+            }
+        }
+    } catch {}
+    return $null
+}
+
+function Resolve-ClosedAppRestartExe {
+    param(
+        [string]$ProcessName,
+        [string]$CapturedExe
+    )
+    if ($CapturedExe -and (Test-Path -LiteralPath $CapturedExe)) { return $CapturedExe }
+    $exeName = ($ProcessName.Trim() -replace '\.exe$', '') + '.exe'
+    if ($exeName -ieq 'browser.exe') { return $null }
+    foreach ($p in @(Get-WellKnownBrowserExePaths)) {
+        if ([System.IO.Path]::GetFileName($p) -ieq $exeName) { return $p }
+    }
+    foreach ($root in @(
+            'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths',
+            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths',
+            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths'
+        )) {
+        $key = Join-Path $root $exeName
+        if (-not (Test-Path -LiteralPath $key)) { continue }
+        try {
+            $cmd = (Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue).'(default)'
+            $parsed = Split-BrowserLaunchCommand $cmd
+            if ($parsed['Exe'] -and (Test-Path -LiteralPath $parsed['Exe'])) { return $parsed['Exe'] }
+        } catch {}
+    }
+    return $null
+}
+
+function Add-ClosedAppRestart {
+    param(
+        [string]$ProcessName,
+        [string]$ExePath
+    )
+    if (-not (Test-RestartableClosedProcessName $ProcessName)) { return }
+    $label = Get-ClosedAppDisplayName $ProcessName
+    $exe = Resolve-ClosedAppRestartExe -ProcessName $ProcessName -CapturedExe $ExePath
+    if ($ProcessName -ieq 'browser' -and $exe -and $exe -notmatch '(?i)Yandex') { return }
+    $key = if ($exe) { $exe.ToLowerInvariant() } else { $ProcessName.ToLowerInvariant() }
+    foreach ($row in @($script:ClosedAppRestarts)) {
+        if ($row.Key -eq $key) { return }
+    }
+    [void]$script:ClosedAppRestarts.Add(@{
+        Key          = $key
+        ProcessName  = ($ProcessName.Trim() -replace '\.exe$', '')
+        Label        = $label
+        Exe          = $exe
+    })
+}
+
+function Restore-ClosedApps {
+    param([scriptblock]$Log = { param([string]$Message) })
+    $script:RestartedAppLabels = New-Object System.Collections.Generic.List[string]
+    if ($env:MYCLEANPC_NO_RESTART -eq '1') { return }
+    if (@($script:ClosedAppRestarts).Count -eq 0) { return }
+    & $Log "  Reopening apps that were closed for cleaning..."
+    foreach ($row in @($script:ClosedAppRestarts)) {
+        $exe = Resolve-ClosedAppRestartExe -ProcessName $row.ProcessName -CapturedExe $row.Exe
+        if (-not $exe -or -not (Test-Path -LiteralPath $exe)) {
+            & $Log ("  Could not reopen {0} (app path not found)." -f $row.Label)
+            continue
+        }
+        $leaf = [System.IO.Path]::GetFileNameWithoutExtension($exe)
+        $already = @(Get-Process -Name $leaf -ErrorAction SilentlyContinue)
+        if ($already.Count -gt 0) {
+            & $Log ("  {0} is already running." -f $row.Label)
+            if ($script:RestartedAppLabels -notcontains $row.Label) {
+                [void]$script:RestartedAppLabels.Add($row.Label)
+            }
+            continue
+        }
+        try {
+            Start-Process -FilePath $exe -ErrorAction Stop | Out-Null
+            if ($script:RestartedAppLabels -notcontains $row.Label) {
+                [void]$script:RestartedAppLabels.Add($row.Label)
+            }
+            & $Log ("  Reopened {0}." -f $row.Label)
+        } catch {
+            & $Log ("  Could not reopen {0}." -f $row.Label)
+        }
     }
 }
 
 function Get-MyCleanPCBusyMessage {
     $closed = @($script:ClosedAppLabels)
     if ($closed.Count -eq 0) {
-        return "Clearing browser and AI caches. You will get a notice when you can use those apps again."
+        return "Clearing browser and AI caches. Those apps will be reopened when cleaning finishes."
     }
     $list = ($closed | Select-Object -First 4) -join ', '
-    return "Temporarily closed $list so caches can be wiped. You will get a notice when you can use browsers and AI tools again."
+    return "Temporarily closed $list so caches can be wiped. I will reopen them when cleaning finishes."
 }
 
 function Get-MyCleanPCReadyMessage {
+    $reopened = @($script:RestartedAppLabels)
+    if ($reopened.Count -gt 0) {
+        $list = ($reopened | Select-Object -First 5) -join ', '
+        $more = $reopened.Count - 5
+        if ($more -gt 0) {
+            return "Cleanup is complete. I reopened $list, and $more other app(s), for you."
+        }
+        if ($reopened.Count -eq 1) {
+            return "Cleanup is complete. I reopened $list for you."
+        }
+        return "Cleanup is complete. I reopened $list for you."
+    }
     $closed = @($script:ClosedAppLabels)
-    if ($closed.Count -eq 0) {
+    if ($closed.Count -gt 0) {
+        $list = ($closed | Select-Object -First 4) -join ', '
+        return "Cleanup is complete. You can use $list again."
+    }
+    $cleaned = @($script:CleanedBrowserLabels)
+    if ($cleaned.Count -eq 0) {
         return "Scheduled cleanup is complete. You can now use your browsers and AI tools."
     }
-    if ($closed.Count -eq 1) {
-        return "Scheduled cleanup is complete. You can now use $($closed[0]) and your other browsers or AI tools."
-    }
-    if ($closed.Count -eq 2) {
-        return "Scheduled cleanup is complete. You can now use $($closed[0]) and $($closed[1]) again."
-    }
-    $head = ($closed | Select-Object -First 3) -join ', '
-    return "Scheduled cleanup is complete. You can now use $head, and your other browsers or AI tools."
+    $head = ($cleaned | Select-Object -First 5) -join ', '
+    return "Scheduled cleanup is complete. Cleaned $head."
 }
 
 function Show-MyCleanPCBalloon {
@@ -641,7 +886,9 @@ function Close-AiToolProcesses {
             $procs = Get-Process -Name $procName -ErrorAction SilentlyContinue
             if ($procs) {
                 & $Log "  Closing $procName processes (unlock AI caches)..."
+                $exe = Get-MainProcessExecutable $procName
                 Add-ClosedAppLabel $procName
+                Add-ClosedAppRestart -ProcessName $procName -ExePath $exe
                 Stop-Process -Name $procName -Force -ErrorAction SilentlyContinue
                 Start-Sleep -Seconds 1
             }
@@ -649,25 +896,53 @@ function Close-AiToolProcesses {
     }
 }
 
-function Close-BrowserProcesses {
-    param([scriptblock]$Log = { param($m) })
-    $browserProcesses = @(
-        "chrome", "msedge", "brave", "vivaldi", "opera", "yandexbrowser",
-        "chromium", "arc", "wavebox", "sidekick", "centbrowser", "coccoc",
-        "ucbrowser", "epicprivacybrowser", "gensparkbrowser",
-        "firefox", "waterfox", "palemoon", "librewolf", "torbrowser", "basilisk"
+function Close-NamedProcesses {
+    param(
+        [string[]]$ProcessNames,
+        [scriptblock]$Log = { param($m) },
+        [int]$Rounds = 4
     )
-    foreach ($procName in $browserProcesses) {
-        try {
-            $procs = Get-Process -Name $procName -ErrorAction SilentlyContinue
-            if ($procs) {
-                & $Log "  Closing $procName processes..."
-                Add-ClosedAppLabel $procName
+    $names = @($ProcessNames | Where-Object { $_ } | ForEach-Object {
+        ([string]$_).Trim() -replace '\.exe$', ''
+    } | Where-Object { $_ -and (Test-SafeBrowserProcessName $_) } | Select-Object -Unique)
+    if ($names.Count -eq 0) { return }
+    for ($round = 1; $round -le $Rounds; $round++) {
+        $closedAny = $false
+        foreach ($procName in $names) {
+            try {
+                $procs = @(Get-Process -Name $procName -ErrorAction SilentlyContinue)
+                if ($procs.Count -eq 0) { continue }
+                $closedAny = $true
+                if ($round -eq 1) {
+                    & $Log "  Closing $procName processes..."
+                    $exe = Get-MainProcessExecutable $procName
+                    Add-ClosedAppLabel $procName
+                    Add-ClosedAppRestart -ProcessName $procName -ExePath $exe
+                }
                 Stop-Process -Name $procName -Force -ErrorAction SilentlyContinue
-                Start-Sleep -Seconds 2  # Give processes time to close
-            }
-        } catch {}
+                & taskkill.exe /F /IM "$procName.exe" /T 2>$null | Out-Null
+            } catch {}
+        }
+        if (-not $closedAny) { break }
+        Start-Sleep -Milliseconds 700
     }
+}
+
+function Close-BrowserProcesses {
+    param(
+        [scriptblock]$Log = { param($m) },
+        [string[]]$ExtraProcessNames = @()
+    )
+    $browserProcesses = @(
+        "chrome", "chrome_proxy", "msedge", "brave", "vivaldi", "opera", "opera_gx",
+        "yandexbrowser", "browser", "chromium", "arc", "wavebox", "sidekick",
+        "centbrowser", "coccoc", "ucbrowser", "epicprivacybrowser",
+        "gensparkbrowser", "genspark", "duckduckgo",
+        "thorium", "iridium", "slimjet", "maxthon", "whale",
+        "firefox", "waterfox", "palemoon", "librewolf", "torbrowser", "basilisk",
+        "floorp", "zen", "mullvadbrowser", "iexplore"
+    ) + @($ExtraProcessNames)
+    Close-NamedProcesses -ProcessNames $browserProcesses -Log $Log
 }
 
 function Remove-SafePathWithRetry {
@@ -914,52 +1189,622 @@ $script:BrowserDiscoveryExcludes = @(
     '\Packages\', '\INetCache\', '\Temp\'
 )
 
+$script:DiscoveredBrowserProcessNames = New-Object System.Collections.Generic.List[string]
+$script:CachedBrowserLaunchCommands = $null
+
+$script:GeckoProfileRelative = @(
+    @{ Name = 'Mozilla\Firefox'; Rel = 'Mozilla\Firefox\Profiles' },
+    @{ Name = 'Waterfox'; Rel = 'Waterfox\Profiles' },
+    @{ Name = 'LibreWolf'; Rel = 'librewolf\Profiles' },
+    @{ Name = 'Pale Moon'; Rel = 'Moonchild Productions\Pale Moon\Profiles' },
+    @{ Name = 'Basilisk'; Rel = 'Moonchild Productions\Basilisk\Profiles' },
+    @{ Name = 'Zen'; Rel = 'zen\Profiles' },
+    @{ Name = 'Floorp'; Rel = 'Floorp\Profiles' },
+    @{ Name = 'Mullvad Browser'; Rel = 'Mullvad\MullvadBrowser\Profiles' },
+    @{ Name = 'Tor Browser'; Rel = 'tor-browser\Profiles' }
+)
+
+$script:ChromiumExeProfileMap = @{
+    'chrome.exe'            = @('Google\Chrome\User Data', 'Google\Chrome Beta\User Data', 'Google\Chrome Dev\User Data', 'Google\Chrome SxS\User Data', 'Google\Chrome for Testing\User Data')
+    'msedge.exe'            = @('Microsoft\Edge\User Data', 'Microsoft\Edge Beta\User Data', 'Microsoft\Edge Dev\User Data', 'Microsoft\Edge SxS\User Data')
+    'brave.exe'             = @('BraveSoftware\Brave-Browser\User Data', 'BraveSoftware\Brave-Browser-Beta\User Data', 'BraveSoftware\Brave-Browser-Nightly\User Data')
+    'vivaldi.exe'           = @('Vivaldi\User Data')
+    'opera.exe'             = @('Opera Software\Opera Stable', 'Opera Software\Opera Developer', 'Opera Software\Opera Next')
+    'opera_gx.exe'          = @('Opera Software\Opera GX Stable')
+    'browser.exe'           = @('Yandex\YandexBrowser\User Data')
+    'yandexbrowser.exe'     = @('Yandex\YandexBrowser\User Data')
+    'chromium.exe'          = @('Chromium\User Data')
+    'arc.exe'               = @('Arc\User Data')
+    'wavebox.exe'           = @('WaveboxApp\Wavebox\User Data', 'Wavebox\User Data')
+    'sidekick.exe'          = @('Sidekick\User Data')
+    'gensparkbrowser.exe'   = @('Genspark\User Data', 'GensparkBrowser\User Data', 'GensparkSoftware\Genspark-Browser\User Data')
+    'genspark.exe'          = @('Genspark\User Data', 'GensparkBrowser\User Data', 'GensparkSoftware\Genspark-Browser\User Data')
+    'duckduckgo.exe'        = @('DuckDuckGo\User Data')
+    'thorium.exe'           = @('Thorium\User Data')
+    'iridium.exe'           = @('Iridium\User Data')
+    'slimjet.exe'           = @('Slimjet\User Data')
+    'maxthon.exe'           = @('Maxthon\Application\User Data', 'Maxthon5\User Data')
+    'whale.exe'             = @('Naver\Naver Whale\User Data')
+}
+
+$script:GeckoExeNames = @(
+    'firefox.exe', 'waterfox.exe', 'librewolf.exe', 'palemoon.exe',
+    'basilisk.exe', 'floorp.exe', 'zen.exe', 'mullvadbrowser.exe', 'torbrowser.exe'
+)
+
+function Test-StoreBrowserPackagePath {
+    param([string]$Path)
+    if (-not $Path) { return $false }
+    return ($Path -match '(?i)\\Packages\\(Google\.Chrome|Mozilla\.Firefox|Mozilla\.MozillaFirefox|Microsoft\.MicrosoftEdge|BraveSoftware|OperaSoftware|ClassicOpera|Vivaldi)')
+}
+
 function Test-BrowserDiscoveryExcluded {
     param([string]$Path)
+    if (-not $Path) { return $true }
+    $norm = $Path.TrimEnd('\') + '\'
+    $storeBrowser = Test-StoreBrowserPackagePath $norm
     foreach ($frag in $script:BrowserDiscoveryExcludes) {
-        if ($Path -like "*$frag*") { return $true }
+        if ($frag -eq '\Packages\' -and $storeBrowser) { continue }
+        if ($norm -like "*$frag*") { return $true }
+    }
+    return $false
+}
+
+function Test-ChromiumCacheFolder {
+    param([string]$Path)
+    foreach ($name in @('Cache', 'Code Cache', 'GPUCache', 'System Cache')) {
+        if (Test-Path -LiteralPath (Join-Path $Path $name) -PathType Container) { return $true }
     }
     return $false
 }
 
 function Test-ChromiumUserDataRoot {
     param([string]$Path)
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path -PathType Container)) { return $false }
     if (Test-BrowserDiscoveryExcluded $Path) { return $false }
-    if (-not (Test-Path -LiteralPath (Join-Path $Path 'Local State'))) { return $false }
+    $hasLocalState = Test-Path -LiteralPath (Join-Path $Path 'Local State')
+    $hasNamedProfile = $false
+    $hasProfileCache = $false
     foreach ($child in @(Get-ChildItem -LiteralPath $Path -Directory -ErrorAction SilentlyContinue)) {
-        if ($child.Name -eq 'Default' -or $child.Name -like 'Profile *' -or $child.Name -eq 'Guest Profile') {
-            return $true
+        if ($child.Name -eq 'Default' -or $child.Name -like 'Profile *' -or $child.Name -like 'Person *' -or $child.Name -eq 'Guest Profile' -or $child.Name -eq 'System Profile') {
+            $hasNamedProfile = $true
+            if (Test-ChromiumCacheFolder $child.FullName) { $hasProfileCache = $true }
         }
     }
-    # Opera-style: the "User Data" folder itself is the profile
-    if (Test-Path -LiteralPath (Join-Path $Path 'Cache') -PathType Container) { return $true }
+    # Full Chromium user-data dir (Chrome/Edge/Brave/...)
+    if ($hasLocalState -and $hasNamedProfile) { return $true }
+    # Opera-style: the folder itself is the profile
+    if ($hasLocalState -and (Test-ChromiumCacheFolder $Path)) { return $true }
+    # Opera/Firefox-adjacent Chromium twins: cache lives under Local AppData
+    # without a Local State file (Local State stays in Roaming).
+    if ($hasNamedProfile -and $hasProfileCache) { return $true }
+    if (Test-ChromiumCacheFolder $Path) { return $true }
     return $false
 }
 
-function Find-ChromiumBrowserRoots {
-    $found = @{}
-    foreach ($root in @(Get-KnownChromiumUserDataRoots)) {
-        if (-not (Test-Path -LiteralPath $root)) { continue }
-        if (Test-BrowserDiscoveryExcluded $root) { continue }
-        if (-not (Test-ChromiumUserDataRoot $root)) { continue }
-        $key = $root.ToLowerInvariant()
-        if (-not $found.ContainsKey($key)) { $found[$key] = $root }
+function Get-AppDataHiveTwin {
+    param([string]$Path)
+    if (-not $Path) { return $null }
+    if ($Path -match '(?i)\\AppData\\Roaming\\') {
+        return ($Path -replace '(?i)\\AppData\\Roaming\\', '\AppData\Local\')
     }
-    return @($found.Values | Sort-Object)
+    if ($Path -match '(?i)\\AppData\\Local\\') {
+        return ($Path -replace '(?i)\\AppData\\Local\\', '\AppData\Roaming\')
+    }
+    return $null
+}
+
+function Test-SafeBrowserProcessName {
+    param([string]$Name)
+    if (-not $Name) { return $false }
+    $n = $Name.Trim().ToLowerInvariant()
+    if ($n.Length -lt 3) { return $false }
+    $blocked = @(
+        'program', 'windows', 'system', 'explorer', 'runtime', 'host',
+        'update', 'setup', 'application', 'service', 'svchost', 'dllhost'
+    )
+    return ($blocked -notcontains $n)
+}
+
+function Get-ChromiumProfileDirectories {
+    param([string]$UserDataPath)
+    $base = [System.Environment]::ExpandEnvironmentVariables($UserDataPath)
+    if (-not (Test-Path -LiteralPath $base -PathType Container)) { return @() }
+    $skip = @(
+        'Crashpad', 'Safe Browsing', 'SwReporter', 'optimization_guide_model_store',
+        'component_crx_cache', 'extensions_crx_cache', 'BrowserMetrics', 'ShaderCache',
+        'GrShaderCache', 'GraphiteDawnCache', 'FileTypePolicies', 'hyphen-data',
+        'OnDeviceHeadSuggestModel', 'WasmTtsEngine', 'ZxcvbnData', 'Crowd Deny',
+        'PKIMetadata', 'AmountExtractionHeuristicRegexes', 'CertificateRevocation',
+        'MediaFoundationWidevineCdm', 'ActorSafetyLists', 'SSLErrorAssistant',
+        'TpcdMetadata', 'SafetyTips', 'segmentation_platform', 'MEIPreload',
+        'Local Traces', 'logs', 'ollama', '.ollama'
+    )
+    $dirs = @(Get-ChildItem -LiteralPath $base -Directory -ErrorAction SilentlyContinue | Where-Object {
+        if ($skip -contains $_.Name) { return $false }
+        if ($_.Name -match '^[a-p]{32}$') { return $false }
+        if ($_.Name -eq 'Default' -or $_.Name -like 'Profile *' -or $_.Name -like 'Person *' -or $_.Name -eq 'Guest Profile' -or $_.Name -eq 'System Profile') {
+            return $true
+        }
+        if (Test-Path -LiteralPath (Join-Path $_.FullName 'Preferences')) { return $true }
+        if (Test-ChromiumCacheFolder $_.FullName) { return $true }
+        return $false
+    })
+    if ($dirs.Count -eq 0) {
+        return @(Get-Item -LiteralPath $base -ErrorAction SilentlyContinue)
+    }
+    return @($dirs)
+}
+
+function Split-BrowserLaunchCommand {
+    param([string]$Command)
+    $exe = $null
+    $args = ''
+    if (-not $Command) { return @{ Exe = $null; Args = '' } }
+    $trim = $Command.Trim().TrimStart('@')
+    if ($trim -match ',[-0-9]+$') { $trim = $trim -replace ',[-0-9]+$', '' }
+    $trim = $trim.Trim()
+    if ($trim.StartsWith('"')) {
+        $end = $trim.IndexOf('"', 1)
+        if ($end -gt 1) {
+            $exe = $trim.Substring(1, $end - 1)
+            if ($end + 1 -lt $trim.Length) { $args = $trim.Substring($end + 1).Trim() }
+        }
+    } else {
+        $m = [regex]::Match($trim, '(?i)^(.+?\.exe)(?:\s+(.*))?$')
+        if ($m.Success) {
+            $exe = $m.Groups[1].Value.Trim().Trim('"')
+            $args = $m.Groups[2].Value.Trim()
+        } else {
+            $parts = $trim.Split(@(' '), 2, [System.StringSplitOptions]::None)
+            $exe = $parts[0]
+            if ($parts.Count -gt 1) { $args = $parts[1] }
+        }
+    }
+    if ($args -match '^,[-0-9]+$') { $args = '' }
+    return @{ Exe = $exe; Args = $args }
+}
+
+function Get-UserDataDirFromArgs {
+    param([string]$ArgumentString)
+    if (-not $ArgumentString) { return $null }
+    $m = [regex]::Match($ArgumentString, '--user-data-dir(?:\s+|=)(?:"([^"]+)"|(\S+))')
+    if ($m.Success) {
+        $p = $m.Groups[1].Value
+        if (-not $p) { $p = $m.Groups[2].Value.Trim('"') }
+        return $p.Trim().TrimEnd('\')
+    }
+    $m = [regex]::Match($ArgumentString, '-profile\s+(?:"([^"]+)"|(\S+))')
+    if ($m.Success) {
+        $p = $m.Groups[1].Value
+        if (-not $p) { $p = $m.Groups[2].Value.Trim('"') }
+        return $p.Trim().TrimEnd('\')
+    }
+    return $null
+}
+
+function Add-DiscoveredProcessName {
+    param([string]$ExePath)
+    if (-not $ExePath) { return }
+    $leaf = [System.IO.Path]::GetFileNameWithoutExtension($ExePath)
+    if (-not $leaf) { return }
+    if (-not (Test-SafeBrowserProcessName $leaf)) { return }
+    if ($null -eq $script:DiscoveredBrowserProcessNames) {
+        $script:DiscoveredBrowserProcessNames = New-Object System.Collections.Generic.List[string]
+    }
+    if ($script:DiscoveredBrowserProcessNames -notcontains $leaf) {
+        [void]$script:DiscoveredBrowserProcessNames.Add($leaf)
+    }
+}
+
+function Get-WellKnownBrowserExePaths {
+    $pf = $env:ProgramFiles
+    $pf86 = ${env:ProgramFiles(x86)}
+    $la = $env:LOCALAPPDATA
+    $candidates = New-Object System.Collections.Generic.List[string]
+    function AddKnown([string]$Base, [string]$Rel) {
+        if (-not $Base) { return }
+        [void]$candidates.Add((Join-Path $Base $Rel))
+    }
+    AddKnown $pf 'Google\Chrome\Application\chrome.exe'
+    AddKnown $pf86 'Google\Chrome\Application\chrome.exe'
+    AddKnown $la 'Google\Chrome\Application\chrome.exe'
+    AddKnown $pf 'Google\Chrome Beta\Application\chrome.exe'
+    AddKnown $pf 'Google\Chrome Dev\Application\chrome.exe'
+    AddKnown $pf 'Google\Chrome SxS\Application\chrome.exe'
+    AddKnown $pf 'Mozilla Firefox\firefox.exe'
+    AddKnown $pf86 'Mozilla Firefox\firefox.exe'
+    AddKnown $la 'Mozilla Firefox\firefox.exe'
+    AddKnown $pf 'Microsoft\Edge\Application\msedge.exe'
+    AddKnown $pf86 'Microsoft\Edge\Application\msedge.exe'
+    AddKnown $la 'BraveSoftware\Brave-Browser\Application\brave.exe'
+    AddKnown $pf 'BraveSoftware\Brave-Browser\Application\brave.exe'
+    AddKnown $pf 'Vivaldi\Application\vivaldi.exe'
+    AddKnown $la 'Vivaldi\Application\vivaldi.exe'
+    AddKnown $pf 'Opera\opera.exe'
+    AddKnown $la 'Programs\Opera\opera.exe'
+    AddKnown $la 'Programs\Opera GX\opera.exe'
+    AddKnown $pf 'Opera GX\opera.exe'
+    AddKnown $pf 'Waterfox\waterfox.exe'
+    AddKnown $pf 'LibreWolf\librewolf.exe'
+    AddKnown $la 'Thorium\Application\thorium.exe'
+    AddKnown $pf 'Yandex\YandexBrowser\Application\browser.exe'
+    return @($candidates | Where-Object { $_ -and (Test-Path -LiteralPath $_) })
+}
+
+function Get-StartMenuBrowserCommands {
+    $out = New-Object System.Collections.Generic.List[hashtable]
+    $hint = '(?i)(Chrome|Firefox|Edge|Brave|Opera|Vivaldi|Yandex|Chromium|Waterfox|LibreWolf|Tor Browser|Floorp|Thorium|Arc|Whale|DuckDuckGo|Genspark|Pale Moon)'
+    $roots = @(
+        (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs'),
+        (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs')
+    )
+    $shell = $null
+    try { $shell = New-Object -ComObject WScript.Shell } catch {}
+    if (-not $shell) { return @() }
+    foreach ($root in $roots) {
+        if (-not $root -or -not (Test-Path -LiteralPath $root -PathType Container)) { continue }
+        foreach ($lnk in @(Get-ChildItem -LiteralPath $root -Filter '*.lnk' -Recurse -Depth 4 -ErrorAction SilentlyContinue)) {
+            if ($lnk.BaseName -notmatch $hint) { continue }
+            try {
+                $sc = $shell.CreateShortcut($lnk.FullName)
+                $cmd = ('{0} {1}' -f $sc.TargetPath, $sc.Arguments).Trim()
+                $parsed = Split-BrowserLaunchCommand $cmd
+                if ($parsed.Exe) { [void]$out.Add($parsed) }
+            } catch {}
+        }
+    }
+    return @($out)
+}
+
+function Get-RunningBrowserLaunchCommands {
+    $out = New-Object System.Collections.Generic.List[hashtable]
+    $watch = @($script:ChromiumExeProfileMap.Keys) + $script:GeckoExeNames
+    foreach ($exeName in $watch) {
+        $filter = "Name='$exeName'"
+        $procs = @()
+        try { $procs = @(Get-CimInstance -ClassName Win32_Process -Filter $filter -ErrorAction SilentlyContinue) } catch {}
+        if ($procs.Count -eq 0) {
+            $leaf = [System.IO.Path]::GetFileNameWithoutExtension($exeName)
+            foreach ($proc in @(Get-Process -Name $leaf -ErrorAction SilentlyContinue)) {
+                if ($proc.Path) { [void]$out.Add(@{ Exe = $proc.Path; Args = '' }) }
+            }
+            continue
+        }
+        foreach ($p in $procs) {
+            if ($p.CommandLine) {
+                $parsed = Split-BrowserLaunchCommand $p.CommandLine
+                if ($parsed.Exe) { [void]$out.Add($parsed); continue }
+            }
+            if ($p.ExecutablePath) {
+                [void]$out.Add(@{ Exe = $p.ExecutablePath; Args = '' })
+            }
+        }
+    }
+    return @($out)
+}
+
+function Get-AllBrowserLaunchCommands {
+    if ($null -ne $script:CachedBrowserLaunchCommands) { return $script:CachedBrowserLaunchCommands }
+    $out = New-Object System.Collections.Generic.List[hashtable]
+    $seen = @{}
+    function AddCmd([hashtable]$parsed) {
+        if (-not $parsed -or -not $parsed['Exe']) { return }
+        $key = (($parsed['Exe']) + '|' + ($parsed['Args'])).ToLowerInvariant()
+        if ($seen.ContainsKey($key)) { return }
+        $seen[$key] = $true
+        [void]$out.Add($parsed)
+    }
+    foreach ($cmd in @(Get-RegisteredBrowserCommands)) { AddCmd $cmd }
+    foreach ($cmd in @(Get-StartMenuBrowserCommands)) { AddCmd $cmd }
+    foreach ($cmd in @(Get-RunningBrowserLaunchCommands)) { AddCmd $cmd }
+    foreach ($exe in @(Get-WellKnownBrowserExePaths)) { AddCmd @{ Exe = $exe; Args = '' } }
+    $script:CachedBrowserLaunchCommands = @($out)
+    return $script:CachedBrowserLaunchCommands
+}
+
+function Get-RegisteredBrowserCommands {
+    $out = New-Object System.Collections.Generic.List[hashtable]
+    $keys = @(
+        'HKLM:\SOFTWARE\Clients\StartMenuInternet',
+        'HKLM:\SOFTWARE\WOW6432Node\Clients\StartMenuInternet',
+        'HKCU:\SOFTWARE\Clients\StartMenuInternet'
+    )
+    foreach ($root in $keys) {
+        if (-not (Test-Path -LiteralPath $root)) { continue }
+        foreach ($client in @(Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue)) {
+            $cmdKey = Join-Path $client.PSPath 'shell\open\command'
+            $cmd = $null
+            try { $cmd = (Get-ItemProperty -LiteralPath $cmdKey -ErrorAction SilentlyContinue).'(default)' } catch {}
+            if (-not $cmd) { continue }
+            $parsed = Split-BrowserLaunchCommand $cmd
+            if ($parsed.Exe) { [void]$out.Add($parsed) }
+        }
+    }
+    $appPathRoots = @(
+        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths',
+        'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths',
+        'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths'
+    )
+    $appExeNames = @($script:ChromiumExeProfileMap.Keys) + $script:GeckoExeNames
+    foreach ($root in $appPathRoots) {
+        if (-not (Test-Path -LiteralPath $root)) { continue }
+        foreach ($exeName in $appExeNames) {
+            $p = Join-Path $root $exeName
+            if (-not (Test-Path -LiteralPath $p)) { continue }
+            $cmd = $null
+            try { $cmd = (Get-ItemProperty -LiteralPath $p -ErrorAction SilentlyContinue).'(default)' } catch {}
+            if (-not $cmd) { continue }
+            $parsed = Split-BrowserLaunchCommand $cmd
+            if ($parsed.Exe) { [void]$out.Add($parsed) }
+        }
+    }
+    $uninstallRoots = @(
+        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+        'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall',
+        'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'
+    )
+    $browserNameHint = '(?i)(Chrome|Edge|Firefox|Brave|Opera|Vivaldi|Yandex|Genspark|Chromium|Waterfox|LibreWolf|Pale Moon|Tor Browser|Floorp|Thorium|Arc|Wavebox|Maxthon|Whale|Iridium|Slimjet|DuckDuckGo|CocCoc|UC Browser|Epic)'
+    foreach ($root in $uninstallRoots) {
+        if (-not (Test-Path -LiteralPath $root)) { continue }
+        foreach ($key in @(Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue)) {
+            $props = $null
+            try { $props = Get-ItemProperty -LiteralPath $key.PSPath -ErrorAction SilentlyContinue } catch {}
+            if (-not $props) { continue }
+            $display = [string]$props.DisplayName
+            if (-not $display -or $display -notmatch $browserNameHint) { continue }
+            if ($display -match '(?i)WebView|SDK|Runtime|Fonts') { continue }
+            $icon = [string]$props.DisplayIcon
+            if (-not $icon) { continue }
+            $parsed = Split-BrowserLaunchCommand $icon
+            if ($parsed.Exe) { [void]$out.Add($parsed) }
+        }
+    }
+    return @($out)
+}
+
+function Add-ChromiumRootCandidate {
+    param(
+        [System.Collections.Generic.List[string]]$List,
+        [hashtable]$Seen,
+        [string]$Path
+    )
+    if (-not $Path) { return }
+    $exp = [System.Environment]::ExpandEnvironmentVariables($Path)
+    try { $exp = [System.IO.Path]::GetFullPath($exp) } catch {}
+    if (-not (Test-ChromiumUserDataRoot $exp)) { return }
+    Add-UniquePath $List $Seen $exp
+}
+
+function Add-ChromiumCandidatesFromExe {
+    param(
+        [System.Collections.Generic.List[string]]$List,
+        [hashtable]$Seen,
+        [string]$ExePath,
+        [string]$ArgumentString
+    )
+    Add-DiscoveredProcessName $ExePath
+    $custom = Get-UserDataDirFromArgs $ArgumentString
+    if ($custom) { Add-ChromiumRootCandidate $List $Seen $custom }
+
+    $exeName = $null
+    try { $exeName = [System.IO.Path]::GetFileName($ExePath).ToLowerInvariant() } catch {}
+    if ($exeName -and $script:GeckoExeNames -contains $exeName) { return }
+
+    foreach ($pair in @(Get-AllUserAppDataRoots)) {
+        if ($exeName -and $script:ChromiumExeProfileMap.ContainsKey($exeName)) {
+            foreach ($rel in @($script:ChromiumExeProfileMap[$exeName])) {
+                Add-ChromiumRootCandidate $List $Seen (Join-Path $pair.Local $rel)
+                Add-ChromiumRootCandidate $List $Seen (Join-Path $pair.Roaming $rel)
+            }
+        }
+        if ($ExePath) {
+            $dir = $null
+            try { $dir = [System.IO.Path]::GetDirectoryName($ExePath) } catch {}
+            if ($dir) {
+                $product = Split-Path $dir -Parent
+                $vendor = if ($product) { Split-Path $product -Parent } else { $null }
+                $productLeaf = if ($product) { Split-Path $product -Leaf } else { $null }
+                $vendorLeaf = if ($vendor) { Split-Path $vendor -Leaf } else { $null }
+                if ($productLeaf) {
+                    Add-ChromiumRootCandidate $List $Seen (Join-Path $pair.Local (Join-Path $productLeaf 'User Data'))
+                }
+                if ($vendorLeaf -and $productLeaf) {
+                    Add-ChromiumRootCandidate $List $Seen (Join-Path $pair.Local (Join-Path $vendorLeaf (Join-Path $productLeaf 'User Data')))
+                }
+            }
+        }
+    }
+}
+
+function Add-ChromiumRootIfPresent {
+    param(
+        [System.Collections.Generic.List[string]]$List,
+        [hashtable]$Seen,
+        [string]$Path
+    )
+    if (-not $Path) { return }
+    $exp = [System.Environment]::ExpandEnvironmentVariables($Path)
+    try { $exp = [System.IO.Path]::GetFullPath($exp) } catch {}
+    if (-not (Test-Path -LiteralPath $exp -PathType Container)) { return }
+    if (Test-BrowserDiscoveryExcluded $exp) { return }
+    Add-UniquePath $List $Seen $exp
+}
+
+function Find-ChromiumBrowserRoots {
+    $found = New-Object System.Collections.Generic.List[string]
+    $seen = @{}
+    $script:DiscoveredBrowserProcessNames = New-Object System.Collections.Generic.List[string]
+    $script:CachedBrowserLaunchCommands = $null
+
+    # Known install locations: if the profile folder exists, clean it.
+    # Do not require Local State — Opera/Firefox-adjacent twins and
+    # half-initialized Chrome profiles would otherwise be skipped forever.
+    foreach ($root in @(Get-KnownChromiumUserDataRoots)) {
+        Add-ChromiumRootIfPresent $found $seen $root
+    }
+
+    foreach ($cmd in @(Get-AllBrowserLaunchCommands)) {
+        Add-ChromiumCandidatesFromExe $found $seen $cmd.Exe $cmd['Args']
+    }
+
+    $nameHint = '(?i)(Google|Chrome|Edge|Brave|Vivaldi|Opera|Yandex|Chromium|Arc|Wavebox|Sidekick|Whale|Maxthon|Slimjet|Iridium|Thorium|Dragon|Avast|CCleaner|CocCoc|UCBrowser|Epic|Genspark|DuckDuckGo|Island|Mozilla|Firefox)'
+    foreach ($pair in @(Get-AllUserAppDataRoots)) {
+        foreach ($base in @($pair.Local, $pair.Roaming)) {
+            if (-not (Test-UsableDirectory $base)) { continue }
+            foreach ($vendor in @(Get-ChildItem -LiteralPath $base -Directory -ErrorAction SilentlyContinue)) {
+                if ($vendor.Name -notmatch $nameHint) { continue }
+                foreach ($product in @(Get-ChildItem -LiteralPath $vendor.FullName -Directory -ErrorAction SilentlyContinue)) {
+                    $ud = Join-Path $product.FullName 'User Data'
+                    Add-ChromiumRootCandidate $found $seen $ud
+                    if ($product.Name -match $nameHint) {
+                        Add-ChromiumRootCandidate $found $seen $product.FullName
+                    }
+                }
+                Add-ChromiumRootCandidate $found $seen (Join-Path $vendor.FullName 'User Data')
+                if ($vendor.Name -match $nameHint) {
+                    Add-ChromiumRootCandidate $found $seen $vendor.FullName
+                }
+            }
+        }
+    }
+
+    foreach ($pair in @(Get-AllUserAppDataRoots)) {
+        $packages = Join-Path $pair.Local 'Packages'
+        if (-not (Test-Path -LiteralPath $packages -PathType Container)) { continue }
+        foreach ($pkg in @(Get-ChildItem -LiteralPath $packages -Directory -ErrorAction SilentlyContinue)) {
+            if (-not (Test-StoreBrowserPackagePath $pkg.FullName)) { continue }
+            foreach ($rel in @(
+                    'LocalCache\Local\Google\Chrome\User Data',
+                    'LocalCache\Local\Microsoft\Edge\User Data',
+                    'LocalCache\Local\BraveSoftware\Brave-Browser\User Data',
+                    'LocalCache\Local\Vivaldi\User Data',
+                    'LocalCache\Roaming\Opera Software\Opera Stable',
+                    'LocalCache\Local\Opera Software\Opera Stable'
+                )) {
+                Add-ChromiumRootCandidate $found $seen (Join-Path $pkg.FullName $rel)
+            }
+        }
+    }
+
+    foreach ($root in @($found.ToArray())) {
+        $twin = Get-AppDataHiveTwin $root
+        if ($twin) { Add-ChromiumRootIfPresent $found $seen $twin }
+    }
+
+    return @($found | Sort-Object)
+}
+
+function Add-GeckoProfilesFromIni {
+    param(
+        [hashtable]$Found,
+        [string]$VendorName,
+        [string]$IniPath
+    )
+    if (-not (Test-Path -LiteralPath $IniPath)) { return }
+    $iniDir = Split-Path $IniPath -Parent
+    $isRelative = $true
+    foreach ($line in @(Get-Content -LiteralPath $IniPath -ErrorAction SilentlyContinue)) {
+        if ($line -match '^\s*\[Profile') { $isRelative = $true; continue }
+        if ($line -match '^\s*IsRelative\s*=\s*(\d+)') { $isRelative = ($Matches[1] -eq '1'); continue }
+        if ($line -match '^\s*Path\s*=\s*(.+)\s*$') {
+            $raw = $Matches[1].Trim().Replace('/', '\')
+            $profRoot = $null
+            if ($isRelative) { $profRoot = Join-Path $iniDir $raw } else { $profRoot = $raw }
+            if (-not (Test-Path -LiteralPath $profRoot)) { continue }
+            $container = $profRoot
+            $looksLikeProfile = (Test-Path -LiteralPath (Join-Path $profRoot 'prefs.js')) -or
+                (Test-Path -LiteralPath (Join-Path $profRoot 'cache2') -PathType Container)
+            if ($looksLikeProfile) {
+                $parent = Split-Path $profRoot -Parent
+                if ($parent -and ((Split-Path $parent -Leaf) -ieq 'Profiles')) {
+                    $container = $parent
+                }
+            }
+            $key = $container.ToLowerInvariant()
+            if (-not $Found.ContainsKey($key)) {
+                $Found[$key] = @{ Name = $VendorName; Path = $container }
+            }
+        }
+    }
 }
 
 function Find-GeckoBrowserProfileDirs {
     $found = @{}
-    $known = @(
-        @{ Name = 'Mozilla\Firefox'; Path = "$env:APPDATA\Mozilla\Firefox\Profiles" },
-        @{ Name = 'Waterfox'; Path = "$env:APPDATA\Waterfox\Profiles" },
-        @{ Name = 'LibreWolf'; Path = "$env:APPDATA\librewolf\Profiles" },
-        @{ Name = 'Pale Moon'; Path = "$env:APPDATA\Moonchild Productions\Pale Moon\Profiles" }
-    )
-    foreach ($g in $known) {
-        if (-not (Test-Path $g.Path)) { continue }
-        $key = $g.Path.ToLowerInvariant()
-        if (-not $found.ContainsKey($key)) { $found[$key] = $g }
+    foreach ($pair in @(Get-AllUserAppDataRoots)) {
+        foreach ($g in $script:GeckoProfileRelative) {
+            foreach ($base in @($pair.Roaming, $pair.Local)) {
+                $p = Join-Path $base $g.Rel
+                if (Test-Path -LiteralPath $p) {
+                    $key = $p.ToLowerInvariant()
+                    if (-not $found.ContainsKey($key)) { $found[$key] = @{ Name = $g.Name; Path = $p } }
+                }
+                $iniParent = Join-Path $base (Split-Path $g.Rel -Parent)
+                $ini = Join-Path $iniParent 'profiles.ini'
+                Add-GeckoProfilesFromIni $found $g.Name $ini
+            }
+        }
+        $packages = Join-Path $pair.Local 'Packages'
+        if (Test-Path -LiteralPath $packages -PathType Container) {
+            foreach ($pkg in @(Get-ChildItem -LiteralPath $packages -Directory -ErrorAction SilentlyContinue)) {
+                if ($pkg.Name -notmatch '(?i)^(Mozilla\.Firefox|Mozilla\.MozillaFirefox|LibreWolf)') { continue }
+                foreach ($rel in @(
+                        'LocalCache\Roaming\Mozilla\Firefox\Profiles',
+                        'LocalCache\Local\Mozilla\Firefox\Profiles',
+                        'LocalCache\Roaming\librewolf\Profiles',
+                        'LocalCache\Local\librewolf\Profiles'
+                    )) {
+                    $p = Join-Path $pkg.FullName $rel
+                    if (-not (Test-Path -LiteralPath $p)) { continue }
+                    $key = $p.ToLowerInvariant()
+                    $label = if ($pkg.Name -match '(?i)LibreWolf') { 'LibreWolf' } else { 'Mozilla\Firefox' }
+                    if (-not $found.ContainsKey($key)) { $found[$key] = @{ Name = $label; Path = $p } }
+                    $ini = Join-Path (Split-Path $p -Parent) 'profiles.ini'
+                    Add-GeckoProfilesFromIni $found $label $ini
+                }
+            }
+        }
+    }
+    foreach ($cmd in @(Get-AllBrowserLaunchCommands)) {
+        $exeName = $null
+        try { $exeName = [System.IO.Path]::GetFileName($cmd.Exe).ToLowerInvariant() } catch {}
+        if (-not $exeName -or $script:GeckoExeNames -notcontains $exeName) { continue }
+        Add-DiscoveredProcessName $cmd.Exe
+        $custom = Get-UserDataDirFromArgs $cmd['Args']
+        if ($custom -and (Test-Path -LiteralPath $custom)) {
+            $key = $custom.ToLowerInvariant()
+            if (-not $found.ContainsKey($key)) {
+                $found[$key] = @{ Name = $exeName; Path = $custom }
+            }
+        }
+        if ($cmd.Exe) {
+            $dir = $null
+            try { $dir = [System.IO.Path]::GetDirectoryName($cmd.Exe) } catch {}
+            foreach ($rel in @(
+                    'TorBrowser\Data\Browser',
+                    'Browser\TorBrowser\Data\Browser'
+                )) {
+                $p = $null
+                if ($dir) {
+                    $p = Join-Path (Split-Path $dir -Parent) $rel
+                    if (-not (Test-Path -LiteralPath $p)) { $p = Join-Path $dir $rel }
+                }
+                if ($p -and (Test-Path -LiteralPath $p)) {
+                    $key = $p.ToLowerInvariant()
+                    if (-not $found.ContainsKey($key)) {
+                        $found[$key] = @{ Name = 'Tor Browser'; Path = $p }
+                    }
+                }
+            }
+        }
+    }
+    foreach ($entry in @($found.Values)) {
+        $twin = Get-AppDataHiveTwin $entry.Path
+        if (-not $twin -or -not (Test-Path -LiteralPath $twin -PathType Container)) { continue }
+        $key = $twin.ToLowerInvariant()
+        if (-not $found.ContainsKey($key)) {
+            $found[$key] = @{ Name = $entry.Name; Path = $twin }
+        }
     }
     return @($found.Values)
 }
@@ -981,19 +1826,29 @@ function Get-BrowserLabelFromPath {
         @{ Match = 'CocCoc'; Label = 'Coc Coc Browser' }
         @{ Match = 'UCBrowser'; Label = 'UC Browser' }
         @{ Match = 'Epic Privacy Browser'; Label = 'Epic Browser' }
+        @{ Match = 'GensparkSoftware'; Label = 'Genspark Browser' }
         @{ Match = 'Genspark'; Label = 'Genspark Browser' }
+        @{ Match = 'DuckDuckGo'; Label = 'DuckDuckGo' }
+        @{ Match = 'Thorium'; Label = 'Thorium' }
+        @{ Match = 'Naver Whale'; Label = 'Naver Whale' }
+        @{ Match = 'Maxthon'; Label = 'Maxthon' }
+        @{ Match = 'Chrome Dev'; Label = 'Chrome Dev' }
+        @{ Match = 'Chrome SxS'; Label = 'Chrome Canary' }
     )
     foreach ($rule in $rules) {
         if ($Path -like "*$($rule.Match)*") { return $rule.Label }
     }
     if ($Path -match '\\User Data$') {
-        $browserDir = Split-Path (Split-Path $Path -Parent) -Leaf
-        $vendorDir = Split-Path (Split-Path (Split-Path $Path -Parent) -Parent) -Leaf
+        $parent = Split-Path $Path -Parent
+        $browserDir = if ($parent) { Split-Path $parent -Leaf } else { $null }
+        $vendorParent = if ($parent) { Split-Path $parent -Parent } else { $null }
+        $vendorDir = if ($vendorParent) { Split-Path $vendorParent -Leaf } else { $null }
         if ($vendorDir -and $browserDir -and $vendorDir -ne $browserDir) {
             return "$vendorDir $browserDir".Trim()
         }
         return $browserDir
     }
+    if (-not $Path) { return 'Browser' }
     return (Split-Path $Path -Leaf)
 }
 
@@ -1017,7 +1872,8 @@ $script:ChromiumCleanDirs = @(
     "Local Storage", "IndexedDB", "Session Storage", "Application Cache",
     "File System", "DawnCache", "DawnWebGPUCache", "DawnGraphiteCache",
     "GrShaderCache", "ShaderCache", "Shared Dictionary",
-    "optimization_guide_hint_cache_store"
+    "optimization_guide_hint_cache_store", "System Cache", "Tablo Cache",
+    "TurboAppCache", "Favorites Cache", "AutofillAiModelCache"
 )
 $script:ChromiumCleanFiles = @(
     "Cookies", "Cookies-journal", "History", "History-journal",
@@ -1028,7 +1884,7 @@ $script:ChromiumCleanFiles = @(
 )
 $script:GeckoCleanDirs = @(
     "cache2", "startupCache", "OfflineCache", "thumbnails", "jumpListCache",
-    "storage\default"
+    "storage\default", "safebrowsing"
 )
 $script:GeckoCleanFiles = @(
     "cookies.sqlite", "cookies.sqlite-shm", "cookies.sqlite-wal",
@@ -1042,16 +1898,14 @@ function Clear-ChromiumBrowserCache {
     $base = [System.Environment]::ExpandEnvironmentVariables($UserDataPath)
     if (-not (Test-Path $base)) { return }
 
-    foreach ($d in @('GrShaderCache', 'ShaderCache', 'GraphiteDawnCache')) {
+    foreach ($d in @('GrShaderCache', 'ShaderCache', 'GraphiteDawnCache', 'Crashpad', 'BrowserMetrics', 'optimization_guide_model_store')) {
         $target = Join-Path $base $d
         if (Test-Path -LiteralPath $target -PathType Container) {
             Remove-DirectorySilent -LiteralPath $target -KeepContainer | Out-Null
         }
     }
 
-    $profileDirs = @(Get-ChildItem $base -Directory -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -eq 'Default' -or $_.Name -like 'Profile *' -or $_.Name -eq 'Guest Profile' })
-    if ($profileDirs.Count -eq 0) { $profileDirs = @(Get-Item -LiteralPath $base) }
+    $profileDirs = @(Get-ChromiumProfileDirectories $base)
 
     foreach ($prof in $profileDirs) {
         $profile = $prof.FullName
@@ -1066,6 +1920,11 @@ function Clear-ChromiumBrowserCache {
         foreach ($f in $script:ChromiumCleanFiles) {
             Remove-SafePathWithRetry -LiteralPath (Join-Path $profile $f) | Out-Null
         }
+        foreach ($extra in @(Get-ChildItem -LiteralPath $profile -File -Force -ErrorAction SilentlyContinue)) {
+            if ($extra.Name -like 'History-*' -or $extra.Name -like 'Archived History*' -or $extra.Name -like 'Favicons-*') {
+                Remove-SafePathWithRetry -LiteralPath $extra.FullName | Out-Null
+            }
+        }
         $networkCookies = Join-Path $profile 'Network\Cookies'
         if (Test-Path -LiteralPath $networkCookies) {
             Remove-SafePathWithRetry -LiteralPath $networkCookies | Out-Null
@@ -1078,8 +1937,22 @@ function Clear-ChromiumBrowserCache {
 function Clear-GeckoBrowserProfiles {
     param([string]$ProfilesPath)
     if (-not (Test-Path $ProfilesPath)) { return }
-    Get-ChildItem $ProfilesPath -Directory -ErrorAction SilentlyContinue | ForEach-Object {
-        $p = $_.FullName
+    $targets = @()
+    if ((Test-Path -LiteralPath (Join-Path $ProfilesPath 'prefs.js')) -or
+        (Test-Path -LiteralPath (Join-Path $ProfilesPath 'cache2') -PathType Container)) {
+        $targets = @(Get-Item -LiteralPath $ProfilesPath)
+    } else {
+        $targets = @(Get-ChildItem $ProfilesPath -Directory -ErrorAction SilentlyContinue | Where-Object {
+            (Test-Path -LiteralPath (Join-Path $_.FullName 'prefs.js')) -or
+            (Test-Path -LiteralPath (Join-Path $_.FullName 'cache2') -PathType Container) -or
+            $_.Name -like '*.default*' -or $_.Name -like 'profile*'
+        })
+        if ($targets.Count -eq 0) {
+            $targets = @(Get-ChildItem $ProfilesPath -Directory -ErrorAction SilentlyContinue)
+        }
+    }
+    foreach ($item in $targets) {
+        $p = $item.FullName
         foreach ($d in $script:GeckoCleanDirs) {
             $target = Join-Path $p $d
             if (Test-Path -LiteralPath $target -PathType Container) {
@@ -1103,20 +1976,27 @@ function Clear-FirefoxProfiles {
 function Clear-AllInstalledBrowsers {
     param([scriptblock]$Log = { param([string]$Message) })
 
-    & $Log "  Closing browser processes (to unlock files)..."
-    Close-BrowserProcesses -Log $Log
+    & $Log "  Scanning PC for all installed browsers (registry, Start Menu, running apps, profile folders)..."
+    $chromiumRoots = @(Find-ChromiumBrowserRoots)
+    $geckoBrowsers = @(Find-GeckoBrowserProfileDirs)
+    $extraProcs = @($script:DiscoveredBrowserProcessNames)
 
-    & $Log "  Scanning PC for all installed browsers..."
-    $chromiumRoots = Find-ChromiumBrowserRoots
-    $geckoBrowsers = Find-GeckoBrowserProfileDirs
-    $count = $chromiumRoots.Count + $geckoBrowsers.Count
+    $count = @($chromiumRoots).Count + @($geckoBrowsers).Count
+    $names = @($chromiumRoots | ForEach-Object { Get-BrowserLabelFromPath $_ }) +
+             @($geckoBrowsers | ForEach-Object { Get-GeckoBrowserLabel $_.Name })
+    $names = @($names | Where-Object { $_ } | Select-Object -Unique)
+    foreach ($n in $names) { Add-CleanedBrowserLabel $n }
 
     if ($count -eq 0) {
         & $Log "  No browser profile folders found on this PC."
         return @{ Chromium = 0; Gecko = 0; Total = 0 }
     }
 
-    & $Log "  Found $count browser profile location(s)."
+    & $Log ("  Installed browsers to clean: {0}" -f ($names -join ', '))
+    & $Log "  Closing those browser processes (to unlock cache files)..."
+    Close-BrowserProcesses -Log $Log -ExtraProcessNames $extraProcs
+
+    & $Log ("  Found {0} profile location(s)." -f $count)
     & $Log "  Cleaning: cache, cookies, history/site data where safe (like Ctrl+Shift+Delete)."
     & $Log "  Auto-skip: passwords, autofill, bookmarks, locked files - no prompts."
 
@@ -1125,13 +2005,30 @@ function Clear-AllInstalledBrowsers {
         $started = Get-Date
         & $Log "  -> $label  ($root)"
         Clear-ChromiumBrowserCache $root
-        $secs = [int]((Get-Date) - $started).TotalSeconds
         $cacheLeft = 0
-        $defaultCache = Join-Path $root 'Default\Cache'
-        if (Test-Path -LiteralPath $defaultCache) {
-            $cacheLeft = @(Get-ChildItem -LiteralPath $defaultCache -Force -ErrorAction SilentlyContinue).Count
+        foreach ($prof in @(Get-ChromiumProfileDirectories $root)) {
+            foreach ($cacheName in @('Cache', 'Code Cache', 'System Cache', 'GPUCache')) {
+                $cacheDir = Join-Path $prof.FullName $cacheName
+                if (Test-Path -LiteralPath $cacheDir) {
+                    $cacheLeft += @(Get-ChildItem -LiteralPath $cacheDir -Force -ErrorAction SilentlyContinue).Count
+                }
+            }
         }
-        & $Log "     done in ${secs}s; leftover Default\\Cache entries: $cacheLeft"
+        if ($cacheLeft -gt 0) {
+            Close-BrowserProcesses -Log { param($m) } -ExtraProcessNames $extraProcs
+            Clear-ChromiumBrowserCache $root
+            $cacheLeft = 0
+            foreach ($prof in @(Get-ChromiumProfileDirectories $root)) {
+                foreach ($cacheName in @('Cache', 'Code Cache')) {
+                    $cacheDir = Join-Path $prof.FullName $cacheName
+                    if (Test-Path -LiteralPath $cacheDir) {
+                        $cacheLeft += @(Get-ChildItem -LiteralPath $cacheDir -Force -ErrorAction SilentlyContinue).Count
+                    }
+                }
+            }
+        }
+        $secs = [int]((Get-Date) - $started).TotalSeconds
+        & $Log "     done in ${secs}s; leftover cache entries: $cacheLeft"
     }
     foreach ($g in $geckoBrowsers) {
         $label = Get-GeckoBrowserLabel $g.Name
@@ -1142,8 +2039,8 @@ function Clear-AllInstalledBrowsers {
         & $Log "     done in ${secs}s"
     }
 
-    & $Log "  [All Browsers] cleared. Passwords and autofill NOT touched."
-    return @{ Chromium = $chromiumRoots.Count; Gecko = $geckoBrowsers.Count; Total = $count }
+    & $Log ("  [All Browsers] cleared ({0}). Passwords and autofill NOT touched." -f ($names -join ', '))
+    return @{ Chromium = @($chromiumRoots).Count; Gecko = @($geckoBrowsers).Count; Total = $count }
 }
 
 function Clear-StoreAppTemp {
@@ -1255,6 +2152,7 @@ function Invoke-MyCleanPCCore {
 
     # AI + browsers first so the 6-hour task cannot burn its time limit on temp/AppData walks.
     Reset-ClosedAppLabels
+    try {
     & $Log "-- STEP 1: AI App Caches --"
     Close-AiToolProcesses -Log $Log
     Close-BrowserProcesses -Log $Log
@@ -1374,5 +2272,8 @@ function Invoke-MyCleanPCCore {
     & $Log "FREED_BYTES:$totalFreed"   # machine-readable sentinel for GUI
     & $Log "============================================"
     & $Log "THANKS CODEX FOR UR CLEAN PC"
+    } finally {
+        Restore-ClosedApps -Log $Log
+    }
     Show-MyCleanPCNotice -Title "You can use browsers and AI tools now" -Body (Get-MyCleanPCReadyMessage) -Log $Log
 }

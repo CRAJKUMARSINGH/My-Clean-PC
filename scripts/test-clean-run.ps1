@@ -57,7 +57,68 @@ Assert (-not ($script:ChromiumCleanFiles -contains 'Login Data')) "Chromium pass
 $chromiumRoots = @(Find-ChromiumBrowserRoots)
 $webviewHit = @($chromiumRoots | Where-Object { $_ -match 'EBWebView|CefCache|DDGWebView|EdgeWebView' })
 Assert ($webviewHit.Count -eq 0) "Embedded WebView folders are not treated as browsers"
-Assert ($chromiumRoots.Count -lt 15) "Browser discovery stays on real browsers, not a full AppData scan"
+Assert ($chromiumRoots.Count -lt 40) "Browser discovery stays on real browsers, not a full AppData scan"
+Assert (-not (Test-BrowserDiscoveryExcluded 'C:\Users\x\AppData\Local\Packages\Google.Chrome.xxx\LocalCache\Local\Google\Chrome\User Data')) "Store Chrome package profiles are not excluded"
+Assert (Test-BrowserDiscoveryExcluded 'C:\Users\x\AppData\Local\Packages\Microsoft.WindowsCalculator_8wekyb3d8bbwe\LocalCache') "Non-browser Store packages stay excluded"
+$parsedCmd = Split-BrowserLaunchCommand '"C:\Program Files\Google\Chrome\Application\chrome.exe" --user-data-dir="D:\ChromeData"'
+Assert ($parsedCmd.Exe -like '*chrome.exe') "Registered browser command parser reads chrome.exe"
+Assert ((Get-UserDataDirFromArgs $parsedCmd['Args']) -eq 'D:\ChromeData') "Parser reads Chromium --user-data-dir"
+$unquotedCmd = Split-BrowserLaunchCommand 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+Assert ($unquotedCmd.Exe -eq 'C:\Program Files\Google\Chrome\Application\chrome.exe') "Parser keeps unquoted Program Files chrome.exe intact"
+$iconCmd = Split-BrowserLaunchCommand 'C:\Program Files\Mozilla Firefox\firefox.exe,0'
+Assert ($iconCmd.Exe -like '*firefox.exe') "Parser reads uninstall DisplayIcon firefox.exe"
+$shallowFound = New-Object System.Collections.Generic.List[string]
+$shallowSeen = @{}
+Add-ChromiumCandidatesFromExe $shallowFound $shallowSeen 'C:\chrome.exe' ''
+Add-ChromiumCandidatesFromExe $shallowFound $shallowSeen 'C:\Tools\msedge.exe' ''
+Assert $true "Shallow browser exe paths do not throw during discovery"
+
+$fakeRoot = Join-Path $env:LOCALAPPDATA 'Thorium\User Data'
+$fakeDefault = Join-Path $fakeRoot 'Default'
+New-Item -ItemType Directory -Path $fakeDefault -Force | Out-Null
+Set-Content -Path (Join-Path $fakeRoot 'Local State') -Value '{}'
+$rootsWithFake = @(Find-ChromiumBrowserRoots)
+Assert (@($rootsWithFake | Where-Object { $_ -ieq $fakeRoot }).Count -gt 0) "Discovery finds Thorium User Data even when it is not Edge"
+Remove-Item -LiteralPath (Join-Path $env:LOCALAPPDATA 'Thorium') -Recurse -Force -ErrorAction SilentlyContinue
+
+$knownNoState = Join-Path $env:LOCALAPPDATA 'Google\Chrome Dev\User Data'
+New-Item -ItemType Directory -Path $knownNoState -Force | Out-Null
+$knownRoots = @(Find-ChromiumBrowserRoots)
+Assert (@($knownRoots | Where-Object { $_ -ieq $knownNoState }).Count -gt 0) "Known Chrome Dev folder is cleaned even without Local State"
+Remove-Item -LiteralPath $knownNoState -Recurse -Force -ErrorAction SilentlyContinue
+
+$ffTwin = Get-AppDataHiveTwin (Join-Path $env:APPDATA 'Mozilla\Firefox\Profiles')
+Assert ($ffTwin -eq (Join-Path $env:LOCALAPPDATA 'Mozilla\Firefox\Profiles')) "Firefox roaming profile has a Local AppData twin path"
+
+Reset-ClosedAppLabels
+Add-CleanedBrowserLabel 'Google Chrome'
+Add-CleanedBrowserLabel 'Firefox'
+$readyCleaned = Get-MyCleanPCReadyMessage
+Assert ($readyCleaned -match 'Google Chrome') "Ready notice names cleaned Chrome even if it was not running"
+Assert ($readyCleaned -match 'Firefox') "Ready notice names cleaned Firefox even if it was not running"
+Reset-ClosedAppLabels
+
+$edgeRoot = Join-Path $env:LOCALAPPDATA 'Microsoft\Edge\User Data'
+$chromeRootInstalled = Join-Path $env:LOCALAPPDATA 'Google\Chrome\User Data'
+if ((Test-Path $edgeRoot) -and (Test-Path $chromeRootInstalled)) {
+    $both = @(Find-ChromiumBrowserRoots)
+    Assert ((@($both | Where-Object { $_ -like '*\Microsoft\Edge\User Data' }).Count -gt 0) -and (@($both | Where-Object { $_ -like '*\Google\Chrome\User Data' }).Count -gt 0)) "Discovery returns both Edge and Chrome when both profiles exist"
+}
+
+$operaLocalTwin = Join-Path $env:LOCALAPPDATA 'MyCleanPC_OperaTwin'
+$operaLocalCache = Join-Path $operaLocalTwin 'Default\Cache'
+New-Item -ItemType Directory -Path $operaLocalCache -Force | Out-Null
+Assert (Test-ChromiumUserDataRoot $operaLocalTwin) "Opera-style Local cache twin is a browser root even without Local State"
+Remove-Item -LiteralPath $operaLocalTwin -Recurse -Force -ErrorAction SilentlyContinue
+
+$geckoDirs = @(Find-GeckoBrowserProfileDirs)
+$ffLocal = Join-Path $env:LOCALAPPDATA 'Mozilla\Firefox\Profiles'
+if (Test-Path $ffLocal) {
+    Assert ((@($geckoDirs | Where-Object { $_.Path -ieq $ffLocal }).Count -gt 0)) "Firefox Local AppData cache profiles are discovered"
+}
+
+Assert (Test-SafeBrowserProcessName 'chrome') "chrome is a closable browser process"
+Assert (-not (Test-SafeBrowserProcessName 'Program')) "Unquoted-path leftover 'Program' is not treated as a browser process"
 
 $aiPaths = @(Get-AiCacheTargetPaths)
 $cursorCache = Join-Path $env:APPDATA 'Cursor\Cache'
@@ -109,13 +170,28 @@ if ($est.Count -gt 0) {
 
 Reset-ClosedAppLabels
 Assert ((Get-MyCleanPCReadyMessage) -match 'You can now use') "Ready notice mentions apps can be used"
-Assert ((Get-MyCleanPCBusyMessage) -match 'notice when you can use') "Busy notice promises a follow-up when apps are ready"
+Assert ((Get-MyCleanPCBusyMessage) -match 'reopen') "Busy notice promises apps will be reopened"
 Add-ClosedAppLabel 'chrome'
 Add-ClosedAppLabel 'Kiro'
 $ready = Get-MyCleanPCReadyMessage
 Assert ($ready -match 'Google Chrome') "Ready notice names closed Chrome"
 Assert ($ready -match 'Kiro') "Ready notice names closed Kiro"
 Assert ((Get-MyCleanPCBusyMessage) -match 'Google Chrome') "Busy notice names closed Chrome"
+Assert ((Get-MyCleanPCBusyMessage) -match 'reopen') "Busy notice says closed apps will be reopened"
+Assert (-not (Test-RestartableClosedProcessName 'chrome_proxy')) "Helper processes are not reopened"
+$chromeExe = Join-Path $env:ProgramFiles 'Google\Chrome\Application\chrome.exe'
+if (Test-Path $chromeExe) {
+    Assert ((Resolve-ClosedAppRestartExe -ProcessName 'chrome' -CapturedExe $null) -like '*chrome.exe') "Chrome restart path is resolved from the installed app"
+}
+$env:MYCLEANPC_NO_RESTART = '1'
+Add-ClosedAppRestart -ProcessName 'chrome' -ExePath $chromeExe
+Restore-ClosedApps | Out-Null
+Assert (@($script:RestartedAppLabels).Count -eq 0) "Restart is skipped when MYCLEANPC_NO_RESTART is set"
+Remove-Item Env:MYCLEANPC_NO_RESTART -ErrorAction SilentlyContinue
+$script:RestartedAppLabels = New-Object System.Collections.Generic.List[string]
+[void]$script:RestartedAppLabels.Add('Google Chrome')
+Assert ((Get-MyCleanPCReadyMessage) -match 'reopened') "Ready notice says closed Chrome was reopened"
+Assert ((Get-MyCleanPCReadyMessage) -match 'Google Chrome') "Ready notice names the reopened browser"
 $env:MYCLEANPC_NO_TOAST = '1'
 Show-MyCleanPCNotice -Title 't' -Body 'b' | Out-Null
 Assert $true "User notice helper runs without throwing when toasts are muted"

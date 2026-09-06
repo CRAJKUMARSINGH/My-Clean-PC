@@ -208,7 +208,7 @@ $btnStart.Add_Click({
     WriteLog "" "info"
     WriteLog "  What was cleaned:" "ok"
     WriteLog "    * AI app caches       CLEANED" "ok"
-    WriteLog "    * Browser cache       CLEANED" "ok"
+    WriteLog "    * All installed browsers CLEANED" "ok"
     WriteLog "    * Temp files          CLEANED (rigorous)" "ok"
     WriteLog "    * AppData junk        CLEANED (all apps)" "ok"
     WriteLog "    * Disk Cleanup        CLEANED (Downloads excluded)" "ok"
