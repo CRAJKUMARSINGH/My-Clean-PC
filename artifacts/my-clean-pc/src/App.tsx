@@ -846,7 +846,7 @@ export default function App() {
           <p className="win-subtitle">For deeper cleaning — runs on your Windows computer</p>
           <div className="win-desc">
             <strong>What this cleans on your Windows PC:</strong><br />
-            AI IDEs: Cursor, Windsurf, Kiro, Trae AI, Warp, Devin &nbsp;|&nbsp;
+            AI IDEs: Cursor, Windsurf, Kiro, Trae AI, Antigravity IDE, Qoder IDE, Warp, Devin &nbsp;|&nbsp;
             Browsers: auto-detects ALL installed (Chrome, Edge, Firefox, Brave, Opera, etc.)<br />
             Also: Rigorous temp · AppData sweep (Local + Roaming) · Recycle Bin · Windows Update cache · DNS cache · Event logs
             <br />

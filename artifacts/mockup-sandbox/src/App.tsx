@@ -252,7 +252,7 @@ function ScanDemo() {
   const [progress, setProgress] = useState(0);
   const [line, setLine] = useState("");
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lines = ["Cursor\\Cache…","Windsurf\\logs…","Chrome\\Cache…","Edge\\Cache…","Brave\\Cache…","Firefox cache2…","%TEMP%\\*…","%LOCALAPPDATA%\\Temp…","AppData\\*\\Cache…","AppData\\*\\Logs…","C:\\Windows\\Temp…","$Recycle.Bin…","SoftwareDistribution…","thumbcache_*.db…","DNS cache…"];
+  const lines = ["Cursor\\Cache…","Windsurf\\logs…","Antigravity IDE\\Cache…","Qoder IDE\\CachedData…","Kiro\\GPUCache…","Trae\\Code Cache…","Chrome\\Cache…","Edge\\Cache…","Brave\\Cache…","Firefox cache2…","%TEMP%\\*…","%LOCALAPPDATA%\\Temp…","AppData\\*\\Cache…","AppData\\*\\Logs…","C:\\Windows\\Temp…","$Recycle.Bin…","SoftwareDistribution…","thumbcache_*.db…","DNS cache…"];
 
   const start = () => {
     setProgress(0); setPhase("scanning"); setLine(lines[0]);
@@ -481,7 +481,7 @@ function AutoClean() {
 
 /* ─── What It Cleans ──────────────────────────────────────────────── */
 const CATEGORIES = [
-  { icon: "🤖", title: "AI IDE Caches",    count: "9 apps",     items: ["Cursor","Windsurf","Kiro","Trae AI","Warp","Devin","Qoder","Antigravity","Genspark"],    desc: "Cache, logs, and temp data from AI coding tools — can reach several GB over weeks." },
+  { icon: "🤖", title: "AI IDE Caches",    count: "11 apps",    items: ["Cursor","Windsurf","Kiro","Trae AI","Antigravity IDE","Qoder IDE","Warp","Devin","Genspark"],    desc: "Cache, logs, and temp data from AI coding tools — can reach several GB over weeks." },
   { icon: "🌐", title: "Browser Data",     count: "All installed", items: ["Auto-detect every browser on PC","Chrome, Edge, Firefox, Brave, Opera + any other","Cache, cookies, history, sessions"], desc: "Scans AppData for all browsers — cleans like Ctrl+Shift+Delete. Passwords always skipped." },
   { icon: "🗂️", title: "Temp Files",       count: "Rigorous",   items: ["%TEMP%","%LOCALAPPDATA%\\Temp","C:\\Windows\\Temp","CrashDumps","D3DSCache","WebCache","Every app's Temp/tmp"], desc: "Maximum safe local temp cleanup — every known temp location plus Temp folders inside all Local apps." },
   { icon: "🧹", title: "AppData Deep Sweep", count: "All apps",   items: ["%LOCALAPPDATA%\\*\\Cache","%LOCALAPPDATA%\\*\\Logs","%APPDATA%\\*\\Temp","%APPDATA%\\*\\CachedData"], desc: "Scans every app in Local and Roaming — deletes cache, temp, and log folders (maximum safe junk). Passwords skipped." },
