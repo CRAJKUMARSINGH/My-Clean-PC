@@ -78,7 +78,7 @@ $script:AiAppRootVars = @(
     '%APPDATA%\Cursor', '%LOCALAPPDATA%\Cursor',
     '%APPDATA%\Code', '%LOCALAPPDATA%\Code',
     '%APPDATA%\kiro', '%APPDATA%\Kiro', '%LOCALAPPDATA%\kiro', '%LOCALAPPDATA%\Kiro',
-    '%APPDATA%\Windsurf', '%LOCALAPPDATA%\Windsurf',
+    '%APPDATA%\Windsurf', '%LOCALAPPDATA%\Windsurf',  # keep Windsurf (cache folders only)
     '%APPDATA%\Trae', '%APPDATA%\trae-ai', '%LOCALAPPDATA%\Trae',
     '%APPDATA%\Antigravity', '%APPDATA%\Antigravity IDE', '%LOCALAPPDATA%\Antigravity', '%LOCALAPPDATA%\Antigravity IDE',
     '%APPDATA%\Qoder', '%APPDATA%\Qoder IDE', '%LOCALAPPDATA%\Qoder', '%LOCALAPPDATA%\Qoder IDE',
@@ -156,7 +156,10 @@ function Get-AiCacheTargetPaths {
             }
         }
     }
-    foreach ($extra in @('%LOCALAPPDATA%\cursor-updater')) {
+    foreach ($extra in @(
+        '%LOCALAPPDATA%\cursor-updater',
+        '%APPDATA%\Devin'   # wipe whole roaming Devin folder (not cache-only)
+    )) {
         Add-UniquePath $out $seen ([System.Environment]::ExpandEnvironmentVariables($extra))
     }
     return @($out)
@@ -621,7 +624,7 @@ $script:ProcessDisplayNames = @{
     arc = 'Arc Browser'; wavebox = 'Wavebox'; sidekick = 'Sidekick'
     duckduckgo = 'DuckDuckGo'; whale = 'Naver Whale'; maxthon = 'Maxthon'
     thorium = 'Thorium'; floorp = 'Floorp'; zen = 'Zen Browser'
-    Kiro = 'Kiro'; Windsurf = 'Windsurf'; Trae = 'Trae'
+    Kiro = 'Kiro'; Windsurf = 'Windsurf'; Trae = 'Trae'; Devin = 'Devin'
     'Antigravity IDE' = 'Antigravity IDE'; Antigravity = 'Antigravity IDE'; 'Qoder IDE' = 'Qoder IDE'; Qoder = 'Qoder IDE'; warp = 'Warp'
     Genspark = 'Genspark'; ChatGPT = 'ChatGPT'; Claude = 'Claude'
 }
@@ -879,7 +882,7 @@ function Close-AiToolProcesses {
     # Unlock AI caches. Do not stop Cursor/Code — this cleaner often runs from Cursor.
     $aiProcesses = @(
         "Kiro", "Windsurf", "Trae", "Antigravity", "Qoder", "warp",
-        "Genspark", "ChatGPT", "Claude"
+        "Devin", "Genspark", "ChatGPT", "Claude"
     )
     foreach ($procName in $aiProcesses) {
         try {
