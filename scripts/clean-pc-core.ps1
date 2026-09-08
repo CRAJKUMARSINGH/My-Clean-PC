@@ -78,8 +78,8 @@ $script:AiAppRootVars = @(
     '%APPDATA%\Cursor', '%LOCALAPPDATA%\Cursor',
     '%APPDATA%\Code', '%LOCALAPPDATA%\Code',
     '%APPDATA%\kiro', '%APPDATA%\Kiro', '%LOCALAPPDATA%\kiro', '%LOCALAPPDATA%\Kiro',
-    '%APPDATA%\Windsurf', '%LOCALAPPDATA%\Windsurf',  # keep Windsurf (cache folders only)
-    '%APPDATA%\Trae', '%APPDATA%\trae-ai', '%LOCALAPPDATA%\Trae',
+    '%APPDATA%\Windsurf', '%LOCALAPPDATA%\Windsurf',
+    '%APPDATA%\Trae', '%APPDATA%\trae', '%APPDATA%\trae-ai', '%LOCALAPPDATA%\Trae', '%LOCALAPPDATA%\trae',
     '%APPDATA%\Antigravity', '%APPDATA%\Antigravity IDE', '%LOCALAPPDATA%\Antigravity', '%LOCALAPPDATA%\Antigravity IDE',
     '%APPDATA%\Qoder', '%APPDATA%\Qoder IDE', '%LOCALAPPDATA%\Qoder', '%LOCALAPPDATA%\Qoder IDE',
     '%APPDATA%\Devin', '%LOCALAPPDATA%\Devin', '%LOCALAPPDATA%\devin',
@@ -89,6 +89,20 @@ $script:AiAppRootVars = @(
     '%APPDATA%\ChatGPT', '%LOCALAPPDATA%\ChatGPT',
     '%APPDATA%\GitHub Copilot', '%LOCALAPPDATA%\github-copilot',
     '%APPDATA%\Copilot', '%LOCALAPPDATA%\Copilot'
+)
+
+# Empty these whole %APPDATA% profiles (KeepContainer). VS Code stays cache-only.
+$script:AiRoamingWipeVars = @(
+    '%APPDATA%\Cursor',
+    '%APPDATA%\Windsurf',
+    '%APPDATA%\trae',
+    '%APPDATA%\Trae',
+    '%APPDATA%\trae-ai',
+    '%APPDATA%\Devin',
+    '%APPDATA%\Antigravity',
+    '%APPDATA%\Antigravity IDE',
+    '%APPDATA%\kiro',
+    '%APPDATA%\Kiro'
 )
 
 # Electron/Chromium cache folder names. Never User/, settings, or chat DBs.
@@ -132,13 +146,29 @@ function Test-UsableDirectory {
     }
 }
 
+function Get-AiRoamingWipeRoots {
+    $out = New-Object System.Collections.Generic.List[string]
+    $seen = @{}
+    foreach ($raw in $script:AiRoamingWipeVars) {
+        $root = [System.Environment]::ExpandEnvironmentVariables($raw)
+        if (-not (Test-UsableDirectory $root)) { continue }
+        Add-UniquePath $out $seen $root
+    }
+    return @($out)
+}
+
 function Get-AiCacheTargetPaths {
     $out = New-Object System.Collections.Generic.List[string]
     $seen = @{}
     $maxDepth = 4
+    $wipeKeys = @{}
+    foreach ($root in @(Get-AiRoamingWipeRoots)) {
+        $wipeKeys[$root.TrimEnd('\').ToLowerInvariant()] = $true
+    }
     foreach ($raw in $script:AiAppRootVars) {
         $root = [System.Environment]::ExpandEnvironmentVariables($raw)
         if (-not (Test-Path -LiteralPath $root -PathType Container)) { continue }
+        if ($wipeKeys.ContainsKey($root.TrimEnd('\').ToLowerInvariant())) { continue }
         $stack = New-Object System.Collections.Stack
         $stack.Push(@{ Path = $root; Depth = 0 })
         while ($stack.Count -gt 0) {
@@ -156,12 +186,10 @@ function Get-AiCacheTargetPaths {
             }
         }
     }
-    foreach ($extra in @(
-        '%LOCALAPPDATA%\cursor-updater',
-        '%APPDATA%\Devin'   # wipe whole roaming Devin folder (not cache-only)
-    )) {
-        Add-UniquePath $out $seen ([System.Environment]::ExpandEnvironmentVariables($extra))
+    foreach ($root in @(Get-AiRoamingWipeRoots)) {
+        Add-UniquePath $out $seen $root
     }
+    Add-UniquePath $out $seen ([System.Environment]::ExpandEnvironmentVariables('%LOCALAPPDATA%\cursor-updater'))
     return @($out)
 }
 
@@ -284,7 +312,7 @@ function Get-CleanupEstimate {
     AddHit ([System.Environment]::ExpandEnvironmentVariables('%LOCALAPPDATA%\Temp')) 'LocalAppData\Temp'
     AddHit 'C:\Windows\Temp'                                                         'Windows\Temp'
 
-    # AI dev-tool caches (cache folders only — never the whole app profile)
+    # Cursor/Windsurf/Trae/Devin/Antigravity/Kiro Roaming profiles are wiped whole
     foreach ($p in @(Get-AiCacheTargetPaths)) {
         $full = [System.Environment]::ExpandEnvironmentVariables($p)
         $leaf = 'AI'
@@ -881,7 +909,7 @@ function Close-AiToolProcesses {
     param([scriptblock]$Log = { param($m) })
     # Unlock AI caches. Do not stop Cursor/Code — this cleaner often runs from Cursor.
     $aiProcesses = @(
-        "Kiro", "Windsurf", "Trae", "Antigravity", "Qoder", "warp",
+        "Kiro", "kiro", "Windsurf", "Trae", "trae", "Antigravity", "Qoder", "warp",
         "Devin", "Genspark", "ChatGPT", "Claude"
     )
     foreach ($procName in $aiProcesses) {
@@ -1186,7 +1214,7 @@ function Remove-CleanPaths {
 $script:BrowserDiscoveryExcludes = @(
     '\Cursor\', '\discord\', '\Discord\', '\Slack\', '\Teams\', '\Postman\',
     '\GitHub Desktop\', '\Notion\', '\Obsidian\', '\Spotify\', '\Zoom\',
-    '\Antigravity\', '\Windsurf\', '\Qoder\', '\kiro\', '\Trae\', '\Devin\',
+    '\Antigravity\', '\Windsurf\', '\Qoder\', '\kiro\', '\Kiro\', '\Trae\', '\trae\', '\Devin\',
     '\electron\', '\Microsoft\Teams\', '\Code\',
     '\EBWebView\', '\EdgeWebView\', '\CefCache\', '\DDGWebView\', '\WebView2\',
     '\Packages\', '\INetCache\', '\Temp\'
@@ -2179,7 +2207,7 @@ function Invoke-MyCleanPCCore {
             if (Remove-SafePathWithRetry -LiteralPath $exp) { $aiCleared++ }
         }
     }
-    & $Log "  [AI App Caches] cleared ($aiCleared cache folders wiped). Settings and chats NOT touched."
+    & $Log "  [AI App Caches] cleared ($aiCleared folders wiped). Cursor/Windsurf/Trae/Devin/Antigravity/Kiro Roaming profiles are emptied. VS Code stays cache-only."
 
     & $Log "-- STEP 2: All Installed Browsers (auto-detect, passwords SAFE) --"
     Clear-AllInstalledBrowsers -Log $Log | Out-Null

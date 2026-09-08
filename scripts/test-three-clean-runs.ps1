@@ -44,9 +44,17 @@ function New-Probes {
     Set-Content $kn 'ai-nested-probe'
     $probes += $kn
 
-    $cursorCache = Join-Path $env:APPDATA 'Cursor\Cache'
-    if (Test-Path (Split-Path $cursorCache -Parent)) {
-        TLog "Cursor Cache present; not planting a probe (Cursor stays running so files can stay locked)."
+    foreach ($name in @('Windsurf', 'trae', 'Devin', 'Antigravity', 'kiro')) {
+        $dir = Join-Path $env:APPDATA $name
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        $rf = Join-Path $dir 'MyCleanPC_RoamingWipeProbe.tmp'
+        Set-Content $rf 'roaming-wipe-probe'
+        $probes += $rf
+    }
+
+    $cursorRoot = Join-Path $env:APPDATA 'Cursor'
+    if (Test-Path $cursorRoot) {
+        TLog "Cursor Roaming profile is a whole-wipe target; not planting a probe (Cursor is running)."
     }
 
     $chromeCache = Join-Path $env:LOCALAPPDATA 'Google\Chrome\User Data\Default\Cache'

@@ -121,27 +121,51 @@ Assert (Test-SafeBrowserProcessName 'chrome') "chrome is a closable browser proc
 Assert (-not (Test-SafeBrowserProcessName 'Program')) "Unquoted-path leftover 'Program' is not treated as a browser process"
 
 $aiPaths = @(Get-AiCacheTargetPaths)
-$cursorCache = Join-Path $env:APPDATA 'Cursor\Cache'
-if (Test-Path $cursorCache) {
-    Assert (@($aiPaths | Where-Object { $_ -ieq $cursorCache }).Count -gt 0) "Cursor Cache is in the AI target list"
+$cursorRoot = Join-Path $env:APPDATA 'Cursor'
+$cursorCache = Join-Path $cursorRoot 'Cache'
+if (Test-Path $cursorRoot) {
+    Assert (@($aiPaths | Where-Object { $_ -ieq $cursorRoot }).Count -gt 0) "Cursor Roaming profile is in the whole-wipe list"
+    Assert (@($aiPaths | Where-Object { $_ -ieq $cursorCache }).Count -eq 0) "Cursor Cache is covered by the whole Roaming wipe"
 }
 
-$kiroCache = Join-Path $env:APPDATA 'kiro\Cache'
+$requiredRoaming = @('Cursor', 'Windsurf', 'trae', 'Devin', 'Antigravity', 'kiro')
+$expandedWipe = @($script:AiRoamingWipeVars | ForEach-Object { [Environment]::ExpandEnvironmentVariables($_) })
+foreach ($name in $requiredRoaming) {
+    $want = Join-Path $env:APPDATA $name
+    Assert (@($expandedWipe | Where-Object { $_ -ieq $want }).Count -gt 0) "AiRoamingWipeVars includes whole AppData\Roaming\$name"
+}
+
+$kiroRoot = Join-Path $env:APPDATA 'kiro'
+$kiroCache = Join-Path $kiroRoot 'Cache'
 New-Item -ItemType Directory -Path $kiroCache -Force | Out-Null
 $kiroProbe = Join-Path $kiroCache 'MyCleanPC_AiProbe.tmp'
 Set-Content -Path $kiroProbe -Value 'ai-probe'
-$kiroNested = Join-Path $env:APPDATA 'kiro\NestedCacheProbe\GPUCache'
+$kiroNested = Join-Path $kiroRoot 'NestedCacheProbe\GPUCache'
 New-Item -ItemType Directory -Path $kiroNested -Force | Out-Null
 $kiroNestedProbe = Join-Path $kiroNested 'MyCleanPC_AiNestedProbe.tmp'
 Set-Content -Path $kiroNestedProbe -Value 'ai-nested-probe'
+$kiroRootProbe = Join-Path $kiroRoot 'MyCleanPC_RoamingWipeProbe.tmp'
+Set-Content -Path $kiroRootProbe -Value 'roaming-wipe-probe'
 $aiPaths = @(Get-AiCacheTargetPaths)
-Assert (@($aiPaths | Where-Object { $_ -ieq $kiroCache }).Count -gt 0) "Kiro Cache is in the AI target list"
-Assert (@($aiPaths | Where-Object { $_ -ieq $kiroNested }).Count -gt 0) "Nested AI GPUCache is discovered"
+Assert (@($aiPaths | Where-Object { $_ -ieq $kiroRoot }).Count -gt 0) "Kiro Roaming root is in the whole-profile wipe list"
 Close-AiToolProcesses | Out-Null
-Remove-DirectorySilent -LiteralPath $kiroCache -KeepContainer | Out-Null
-Remove-DirectorySilent -LiteralPath $kiroNested -KeepContainer | Out-Null
+Remove-DirectorySilent -LiteralPath $kiroRoot -KeepContainer | Out-Null
 Assert (-not (Test-Path $kiroProbe)) "Kiro Cache probe deleted"
 Assert (-not (Test-Path $kiroNestedProbe)) "Nested AI GPUCache probe deleted"
+Assert (-not (Test-Path $kiroRootProbe)) "Kiro Roaming profile probe deleted"
+
+$isolatedWipe = Join-Path $env:APPDATA 'MyCleanPC_AiRoamingWipeProbe'
+$isolatedJunk = Join-Path $isolatedWipe 'User\settings.json'
+New-Item -ItemType Directory -Path (Split-Path $isolatedJunk) -Force | Out-Null
+Set-Content -Path $isolatedJunk -Value 'settings'
+$savedWipe = $script:AiRoamingWipeVars
+$script:AiRoamingWipeVars = @($isolatedWipe)
+$isolatedTargets = @(Get-AiCacheTargetPaths)
+Assert (@($isolatedTargets | Where-Object { $_ -ieq $isolatedWipe }).Count -gt 0) "Isolated Roaming profile is discovered as a wipe root"
+Remove-DirectorySilent -LiteralPath $isolatedWipe -KeepContainer | Out-Null
+Assert (-not (Test-Path $isolatedJunk)) "Whole Roaming profile wipe deletes User/settings"
+$script:AiRoamingWipeVars = $savedWipe
+Remove-Item -LiteralPath $isolatedWipe -Recurse -Force -ErrorAction SilentlyContinue
 
 $chromeRoot = Join-Path $env:LOCALAPPDATA 'Google\Chrome\User Data'
 if (Test-Path $chromeRoot) {
