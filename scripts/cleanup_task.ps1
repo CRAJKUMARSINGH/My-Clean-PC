@@ -1,6 +1,6 @@
 # My Clean PC - Scheduled Cleanup Task (PowerShell)
 # Requires clean-pc-core.ps1 in the same folder (e.g. C:\Scripts\)
-# Run as SYSTEM via Task Scheduler - no interactive prompts
+# Run as SYSTEM via Task Scheduler - shows warning before cleaning
 # Downloads folder is intentionally NEVER touched.
 # Passwords (Login Data, key4.db) are intentionally NEVER touched.
 
@@ -23,6 +23,15 @@ function Write-Log {
 
 try {
     Write-Log "===== Cleanup Started ====="
+    
+    # Show warning before cleaning starts
+    try {
+        Show-MyCleanPCNotice -Title "My Clean PC - Scheduled Cleaning Starting" -Body "Scheduled cleanup will begin in 30 seconds. You can continue using your computer normally." -Log { param([string]$Message) Write-Log $Message }
+        Start-Sleep -Seconds 30
+    } catch {
+        Write-Log "Warning notification failed, proceeding with cleanup"
+    }
+    
     Invoke-MyCleanPCCore -Log { param([string]$Message) Write-Log $Message } -ManageWindowsUpdateService
     Write-Log "===== Cleanup Finished ====="
 } catch {
