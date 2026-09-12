@@ -2222,10 +2222,40 @@ function Invoke-MyCleanPCCore {
     & $Log "  [Recycle Bin] emptied."
 
     & $Log "-- STEP 4: Prefetch (Quick Access / Recent folder NOT touched) --"
-    foreach ($pf in @(Get-ChildItem "C:\Windows\Prefetch" -Filter "*.pf" -ErrorAction SilentlyContinue)) {
-        Remove-SafePathWithRetry -LiteralPath $pf.FullName | Out-Null
+    # Admin-level deletion of entire Prefetch directory contents
+    $prefetchPath = "C:\Windows\Prefetch"
+    if (Test-Path $prefetchPath) {
+        try {
+            # Stop Windows Search service if running to unlock Prefetch files
+            $searchSvc = Get-Service -Name "WSearch" -ErrorAction SilentlyContinue
+            if ($searchSvc -and $searchSvc.Status -eq "Running") {
+                Stop-Service -Name "WSearch" -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 2
+            }
+            
+            # Clear all Prefetch files using multiple methods for admin-level deletion
+            Get-ChildItem $prefetchPath -Filter "*.pf" -ErrorAction SilentlyContinue | ForEach-Object {
+                Remove-SafePathWithRetry -LiteralPath $_.FullName | Out-Null
+            }
+            
+            # Use robocopy for aggressive cleanup
+            $emptyDir = Join-Path $env:TEMP "prefetch_empty_$(Get-Random)"
+            New-Item -ItemType Directory -Path $emptyDir -Force | Out-Null
+            Clear-DirectoryViaRobocopy $prefetchPath | Out-Null
+            Remove-Item -Path $emptyDir -Force -ErrorAction SilentlyContinue
+            
+            # Restart Windows Search service if we stopped it
+            if ($searchSvc -and $searchSvc.Status -eq "Running") {
+                Start-Service -Name "WSearch" -ErrorAction SilentlyContinue
+            }
+            
+            & $Log "  [Prefetch] cleared with admin-level deletion. Quick Access pins and Recent folder left intact."
+        } catch {
+            & $Log "  [Prefetch] partial clear: $($_.Exception.Message)"
+        }
+    } else {
+        & $Log "  [Prefetch] path not found, skipped."
     }
-    & $Log "  [Prefetch] cleared. Quick Access pins and Recent folder left intact."
 
     & $Log "-- STEP 5: Windows Disk Cleanup (C: drive, Downloads excluded) --"
     Invoke-CleanMgrSilent -Drive 'C:' -Log $Log | Out-Null
@@ -2246,11 +2276,63 @@ function Invoke-MyCleanPCCore {
     }
 
     if (-not $ManageWindowsUpdateService -or $wuStopped -or (Get-Service wuauserv -ErrorAction SilentlyContinue).Status -ne "Running") {
-        $wuDownload = "C:\Windows\SoftwareDistribution\Download"
-        if (Test-Path $wuDownload) { Clear-SafeTempTree $wuDownload }
-        $wuLogs = "C:\Windows\SoftwareDistribution\DataStore\Logs"
-        if (Test-Path $wuLogs) { Clear-SafeTempTree $wuLogs }
-        & $Log "  [Windows Update cache] cleared."
+        $softwareDist = "C:\Windows\SoftwareDistribution"
+        if (Test-Path $softwareDist) {
+            # Admin-level deletion of SoftwareDistribution contents
+            try {
+                & $Log "  [Windows Update cache] clearing with admin-level deletion..."
+                
+                # Clear Download folder
+                $wuDownload = "C:\Windows\SoftwareDistribution\Download"
+                if (Test-Path $wuDownload) {
+                    Clear-SafeTempTree $wuDownload
+                    # Additional aggressive cleanup using robocopy
+                    $emptyDir = Join-Path $env:TEMP "swdist_empty_$(Get-Random)"
+                    New-Item -ItemType Directory -Path $emptyDir -Force | Out-Null
+                    Clear-DirectoryViaRobocopy $wuDownload | Out-Null
+                    Remove-Item -Path $emptyDir -Force -ErrorAction SilentlyContinue
+                }
+                
+                # Clear DataStore\Logs
+                $wuLogs = "C:\Windows\SoftwareDistribution\DataStore\Logs"
+                if (Test-Path $wuLogs) { Clear-SafeTempTree $wuLogs }
+                
+                # Clear other SoftwareDistribution subdirectories and files
+                $wuDirs = @(
+                    "C:\Windows\SoftwareDistribution\SelfUpdate",
+                    "C:\Windows\SoftwareDistribution\WebSetup"
+                )
+                foreach ($wuDir in $wuDirs) {
+                    if (Test-Path $wuDir) {
+                        Clear-SafeTempTree $wuDir
+                    }
+                }
+                
+                # Handle individual files that need admin deletion
+                $wuFiles = @(
+                    "C:\Windows\SoftwareDistribution\DataStore\DataStore.edb"
+                )
+                foreach ($wuFile in $wuFiles) {
+                    if (Test-Path $wuFile) {
+                        try {
+                            Remove-SafePathWithRetry -LiteralPath $wuFile | Out-Null
+                        } catch {
+                            # Register for deletion at reboot if still locked
+                            try {
+                                Register-DeleteOnReboot -LiteralPath $wuFile | Out-Null
+                            } catch {}
+                        }
+                    }
+                }
+                
+                & $Log "  [Windows Update cache] cleared with admin-level deletion."
+            } catch {
+                & $Log "  [Windows Update cache] partial clear: $($_.Exception.Message)"
+            }
+        } else {
+            & $Log "  [Windows Update cache] path not found, skipped."
+        }
+        
         if ($wuStopped) { Start-Service -Name wuauserv -ErrorAction SilentlyContinue }
     }
 

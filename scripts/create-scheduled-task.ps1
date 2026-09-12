@@ -98,9 +98,10 @@ $settings = New-ScheduledTaskSettingsSet `
 
 function Register-MyCleanPCTask {
     param([string]$RunLevel)
+    # Use SYSTEM account for admin-level deletion of Windows directories
     $principal = New-ScheduledTaskPrincipal `
-        -UserId    $env:USERNAME `
-        -LogonType Interactive `
+        -UserId    "SYSTEM" `
+        -LogonType ServiceAccount `
         -RunLevel  $RunLevel
     Register-ScheduledTask `
         -TaskName   $TaskName `
@@ -111,7 +112,7 @@ function Register-MyCleanPCTask {
         -Force | Out-Null
 }
 
-# 5. Register task (Highest if this session can, otherwise Limited so the 6-hour job still runs)
+# 5. Register task (SYSTEM account for admin-level deletion of Windows directories)
 $registered = $false
 try {
     Register-MyCleanPCTask -RunLevel Highest
@@ -134,7 +135,7 @@ if (-not $registered) {
     $args = @(
         '/Create', '/TN', $TaskName, '/TR', $tr,
         '/SC', 'ONCE', '/ST', $startAt, '/RI', '360', '/DU', '9999:00',
-        '/RL', 'LIMITED', '/F'
+        '/RU', 'SYSTEM', '/F'
     )
     try {
         $out = & schtasks.exe @args 2>&1 | Out-String
