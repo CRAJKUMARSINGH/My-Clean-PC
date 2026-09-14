@@ -32,6 +32,21 @@ cd My-Clean-PC\scripts
 powershell -ExecutionPolicy Bypass -File cleanup_task.ps1
 ```
 
+### Option 3 — AI Cache Cleaner (24-minute cycle)
+Cleans AI tool roaming cache and temp files every 24 minutes **without closing any running tools**:
+
+```powershell
+git clone https://github.com/CRAJKUMARSINGH/My-Clean-PC.git
+cd My-Clean-PC\scripts
+powershell -ExecutionPolicy Bypass -File create-ai-cache-task.ps1
+```
+
+This will:
+- Create a Windows Scheduled Task that runs every 24 minutes
+- Clean AI tool caches (Cursor, Windsurf, Trae, Devin, Antigravity, Kiro, etc.)
+- **Never close running AI tools** - they continue uninterrupted
+- Run silently in the background with no notifications
+
 ---
 
 ## Features
@@ -85,7 +100,9 @@ My-Clean-PC/
 ├── scripts/
 │   ├── clean-pc-core.ps1      ← single source of truth for all cleaning logic
 │   ├── cleanup_task.ps1       ← scheduled task runner with user warning
-│   └── create-scheduled-task.ps1  ← installer for Windows Scheduled Task
+│   ├── create-scheduled-task.ps1  ← installer for Windows Scheduled Task
+│   ├── ai-cache-cleaner.ps1   ← AI tool cache cleaner (24-minute cycle)
+│   └── create-ai-cache-task.ps1  ← installer for AI cache scheduled task
 └── README.md
 ```
 
@@ -105,6 +122,23 @@ Unregister-ScheduledTask -TaskName "MyCleanPC" -Confirm:$false
 
 ### Change Schedule
 Edit the `IntervalHrs` variable in `create-scheduled-task.ps1` and re-run the script.
+
+---
+
+## Managing the AI Cache Task
+
+### View AI Cache Task Status
+```powershell
+Get-ScheduledTask -TaskName "MyCleanPC-AI-Cache"
+```
+
+### Remove AI Cache Task
+```powershell
+Unregister-ScheduledTask -TaskName "MyCleanPC-AI-Cache" -Confirm:$false
+```
+
+### Change AI Cache Schedule
+Edit the `IntervalMin` variable in `create-ai-cache-task.ps1` and re-run the script.
 
 ---
 
