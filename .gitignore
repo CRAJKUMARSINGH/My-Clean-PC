@@ -16,3 +16,7 @@ Thumbs.db
 **/cleanup_log.txt
 scripts/cleanup_log.txt
 
+# Dependencies
+node_modules/
+**/node_modules/
+
