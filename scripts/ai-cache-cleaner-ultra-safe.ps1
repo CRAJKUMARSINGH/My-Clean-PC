@@ -102,7 +102,7 @@ function Clean-Safe-Directory {
     
     # Safety check - ensure this is a cache directory
     if (-not (Is-Safe-To-Clean $DirectoryPath)) {
-        Write-Log "  ⚠ SKIPPED: $DirectoryPath (contains sensitive data)"
+        Write-Log "  SKIPPED: $DirectoryPath (contains sensitive data)"
         return $false
     }
     
@@ -141,9 +141,9 @@ function Clean-Safe-Directory {
 
 function Invoke-UltraSafeAiCacheCleaner {
     Write-Log "=== ULTRA-SAFE AI Cache Cleaner ==="
-    Write-Log "🔒 MODE: Maximum Safety - NO app closure, NO session loss"
-    Write-Log "✅ Will ONLY clean safe cache files"
-    Write-Log "✅ Will NEVER touch login data, cookies, or sessions"
+    Write-Log "MODE: Maximum Safety - NO app closure, NO session loss"
+    Write-Log "Will ONLY clean safe cache files"
+    Write-Log "Will NEVER touch login data, cookies, or sessions"
     
     $totalFilesCleaned = 0
     $totalSizeCleaned = 0
@@ -156,11 +156,11 @@ function Invoke-UltraSafeAiCacheCleaner {
             continue
         }
         
-        Write-Log "📁 Processing: $expandedPath"
+        Write-Log "Processing: $expandedPath"
         
         # Final safety check
         if (-not (Is-Safe-To-Clean $expandedPath)) {
-            Write-Log "  ⚠ SKIPPED: Path not safe to clean"
+            Write-Log "  SKIPPED: Path not safe to clean"
             continue
         }
         
@@ -171,14 +171,14 @@ function Invoke-UltraSafeAiCacheCleaner {
             $totalSizeCleaned += $result.Size
             $pathsCleaned++
             $sizeMB = [math]::Round($result.Size / 1MB, 2)
-            Write-Log "  ✅ Cleaned $($result.Files) files ($sizeMB MB)"
+            Write-Log "  Cleaned $($result.Files) files ($sizeMB MB)"
         } else {
-            Write-Log "  ℹ No files to clean or files locked"
+            Write-Log "  No files to clean or files locked"
         }
     }
     
     # Clean temp files (very conservative)
-    Write-Log "🗑️ Cleaning temp files (older than 2 hours)..."
+    Write-Log "Cleaning temp files (older than 2 hours)..."
     $tempCleaned = 0
     $tempPath = $env:TEMP
     
@@ -203,26 +203,26 @@ function Invoke-UltraSafeAiCacheCleaner {
     }
     
     if ($tempCleaned -gt 0) {
-        Write-Log "  ✅ Cleaned $tempCleaned temp files"
+        Write-Log "  Cleaned $tempCleaned temp files"
     }
     
     $totalSizeMB = [math]::Round($totalSizeCleaned / 1MB, 2)
     
     Write-Log "=== Ultra-Safe Cleaner Complete ==="
-    Write-Log "📊 Statistics:"
+    Write-Log "Statistics:"
     Write-Log "   Cache paths cleaned: $pathsCleaned"
     Write-Log "   Files cleaned: $totalFilesCleaned"
     Write-Log "   Space freed: $totalSizeMB MB"
     Write-Log "   Temp files cleaned: $tempCleaned"
     Write-Log ""
-    Write-Log "🔒 Safety Confirmation:"
-    Write-Log "   ✅ NO applications were closed"
-    Write-Log "   ✅ NO browsers were closed"
-    Write-Log "   ✅ NO AI tools were closed"
-    Write-Log "   ✅ NO login sessions were affected"
-    Write-Log "   ✅ NO passwords were touched"
-    Write-Log "   ✅ NO cookies were deleted"
-    Write-Log "   ✅ NO session data was touched"
+    Write-Log "Safety Confirmation:"
+    Write-Log "   NO applications were closed"
+    Write-Log "   NO browsers were closed"
+    Write-Log "   NO AI tools were closed"
+    Write-Log "   NO login sessions were affected"
+    Write-Log "   NO passwords were touched"
+    Write-Log "   NO cookies were deleted"
+    Write-Log "   NO session data was touched"
     Write-Log ""
     Write-Log "Kiro, Devin, and all other tools remain running with sessions intact"
 }
