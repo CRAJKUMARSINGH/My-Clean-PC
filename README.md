@@ -26,32 +26,28 @@ cd My-Clean-PC
 
 ---
 
-### Step 2: Install Both Cleaner Sets
+### Step 2: Choose Installation Option
 
 **⚠️ IMPORTANT: Must be run with Administrator Privileges**
 
-Run the PowerShell command below in an **Administrator PowerShell** window:
+You can install **Both Cleaners**, the **24-Minute Cleaner ONLY**, or the **Weekly Cleaner ONLY**:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File Install-Both-Cleaners-Admin.ps1
-```
-
-*OR*
-
-Double-click **`Launch-Install-Both.bat`** in File Explorer and click **Yes** when the Windows Administrator prompt (UAC) appears.
+| Desired Setup | 1-Click Batch File | PowerShell Command (Run as Admin) |
+|---|---|---|
+| **Install BOTH Cleaners** | Double-click `Launch-Install-Both.bat` | `powershell -ExecutionPolicy Bypass -File Install-Cleaners-Admin.ps1 -Task Both` |
+| **Install 24-Min Cleaner ONLY** | Double-click `Launch-Install-24Min-Only.bat` | `powershell -ExecutionPolicy Bypass -File Install-Cleaners-Admin.ps1 -Task 24Min` |
+| **Install Weekly Cleaner ONLY** | Double-click `Launch-Install-Weekly-Only.bat` | `powershell -ExecutionPolicy Bypass -File Install-Cleaners-Admin.ps1 -Task Weekly` |
 
 ---
 
 ## ⚙️ Installed Cleaner Sets
 
-The master installer sets up two Windows Scheduled Tasks that run silently in the background whenever your PC is on:
-
-1. **`MyCleanPC-24Min`**
-   - **Interval**: Repeats automatically **every 24 minutes**.
-   - **Behavior**: Runs completely hidden without closing any running browsers or AI tools.
-2. **`MyCleanPC-Weekly`**
-   - **Interval**: Repeats automatically **every Week (Monday at 9:00 AM)**.
-   - **Behavior**: Runs background cleanup using the exact same shared engine.
+- **`MyCleanPC-24Min`**
+  - **Interval**: Repeats automatically **every 24 minutes** when PC is ON.
+  - **Behavior**: Runs completely hidden without closing any running browsers or AI tools.
+- **`MyCleanPC-Weekly`**
+  - **Interval**: Repeats automatically **every Week (Monday at 9:00 AM)** when PC is ON.
+  - **Behavior**: Runs background cleanup using the exact same shared engine.
 
 ---
 
@@ -59,8 +55,11 @@ The master installer sets up two Windows Scheduled Tasks that run silently in th
 
 | File / Script Path | Type | Function & Description |
 |---|---|---|
-| **[`Install-Both-Cleaners-Admin.ps1`](Install-Both-Cleaners-Admin.ps1)** | PowerShell Installer | **Master Installer Script**: Auto-elevates to Administrator, copies core scripts to `%LOCALAPPDATA%\MyCleanPC`, and registers both `MyCleanPC-24Min` and `MyCleanPC-Weekly` tasks in Windows Task Scheduler. |
-| **[`Launch-Install-Both.bat`](Launch-Install-Both.bat)** | Batch Launcher | **1-Click Launcher**: Triggers UAC elevation and executes `Install-Both-Cleaners-Admin.ps1` with a single click. |
+| **[`Install-Cleaners-Admin.ps1`](Install-Cleaners-Admin.ps1)** | PowerShell Universal Installer | **Universal Installer**: Auto-elevates to Administrator and registers `Both` tasks, `24Min` task only, or `Weekly` task only based on `-Task` parameter. |
+| **[`Install-Both-Cleaners-Admin.ps1`](Install-Both-Cleaners-Admin.ps1)** | PowerShell Wrapper | **Both Task Installer Wrapper**: Backward-compatible script executing `Install-Cleaners-Admin.ps1 -Task Both`. |
+| **[`Launch-Install-Both.bat`](Launch-Install-Both.bat)** | Batch Launcher | **1-Click Launcher (Both)**: Triggers UAC elevation and installs both `MyCleanPC-24Min` and `MyCleanPC-Weekly`. |
+| **[`Launch-Install-24Min-Only.bat`](Launch-Install-24Min-Only.bat)** | Batch Launcher | **1-Click Launcher (24Min Only)**: Triggers UAC elevation and installs only `MyCleanPC-24Min`. |
+| **[`Launch-Install-Weekly-Only.bat`](Launch-Install-Weekly-Only.bat)** | Batch Launcher | **1-Click Launcher (Weekly Only)**: Triggers UAC elevation and installs only `MyCleanPC-Weekly`. |
 | **[`scripts/ai-cache-cleaner.ps1`](scripts/ai-cache-cleaner.ps1)** | PowerShell Cleaner Engine | **Primary Cleaner Engine**: Executes targeted cleanup of browser caches, cookies, history, storage, AI tool caches, AppData Roaming folders, temp files, and deletes registry `MachineGuid`. |
 | **[`scripts/clean-pc-core.ps1`](scripts/clean-pc-core.ps1)** | PowerShell Shared Core | **Shared Functions & Core Utilities**: Provides helper functions, directory size calculation, disk cleanup integration, and integrates `ai-cache-cleaner.ps1`. |
 | **[`scripts/cleanup_task.ps1`](scripts/cleanup_task.ps1)** | PowerShell Task Runner | **Weekly Task Runner**: Invoked by the weekly scheduled task to execute full cleaning operations. |
@@ -92,7 +91,7 @@ The master installer sets up two Windows Scheduled Tasks that run silently in th
 
 ## 🗑️ How to Uninstall
 
-To remove both scheduled tasks and delete installed files:
+To remove scheduled tasks and delete installed files:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File uninstall.ps1
