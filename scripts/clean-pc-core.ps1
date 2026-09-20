@@ -1,4 +1,4 @@
-﻿# My Clean PC - shared cleaning core (single source of truth)
+# My Clean PC - shared cleaning core (single source of truth)
 # Dot-source from my-clean-pc.ps1, cleanup_task.ps1, etc.
 # Passwords (Login Data, key4.db), autofill data, Downloads, and Quick Access pins are NEVER touched.
 
@@ -2181,10 +2181,18 @@ function Invoke-MyCleanPCCore {
     & $Log "PRESCAN_ESTIMATE:$estStr"   # machine-readable sentinel for GUI
     & $Log ""
 
-    # AI + browsers first so the 6-hour task cannot burn its time limit on temp/AppData walks.
+    # AI + browsers first so the task cannot burn its time limit on temp/AppData walks.
     Reset-ClosedAppLabels
     try {
-    & $Log "-- STEP 1: AI App Caches --"
+    & $Log "-- STEP 1: AI App Caches & Browser Cleaning --"
+    $aiScript = Join-Path $PSScriptRoot "ai-cache-cleaner.ps1"
+    if (-not (Test-Path $aiScript)) {
+        $aiScript = "$env:LOCALAPPDATA\MyCleanPC\ai-cache-cleaner.ps1"
+    }
+    if (Test-Path $aiScript) {
+        & $Log "  [Running Shared Cleaner Engine: $aiScript]"
+        try { . $aiScript } catch { & $Log "  Cleaner script warning: $($_.Exception.Message)" }
+    }
     Close-AiToolProcesses -Log $Log
     Close-BrowserProcesses -Log $Log
     Show-MyCleanPCNotice -Title "My Clean PC is cleaning caches" -Body (Get-MyCleanPCBusyMessage) -Log $Log
