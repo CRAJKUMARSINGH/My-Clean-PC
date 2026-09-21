@@ -9,11 +9,14 @@ $ConfirmPreference      = "None"
 $ProgressPreference     = "SilentlyContinue"
 $WarningPreference      = "SilentlyContinue"
 
+$logFile = Join-Path $PSScriptRoot "ai_cleaner_log.txt"
+
 function Write-Log {
     param([string]$Msg)
     $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $logLine = "[$timestamp] $Msg"
     Write-Host $logLine
+    Add-Content -Path $logFile -Value $logLine -ErrorAction SilentlyContinue
 }
 
 # FORBIDDEN PATHS - NEVER TOUCH Passwords, Downloads, Bookmarks, or Autofill
@@ -154,14 +157,27 @@ $safeCachePaths = $expandedCachePaths
 
 function Is-Safe-To-Clean {
     param([string]$Path)
-    
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    $normPath = $Path -replace '/', '\'
+
+    # Absolute safeguard for User Profile Downloads folder and subitems
+    $userDownloads = Join-Path $env:USERPROFILE "Downloads"
+    if ($normPath -ieq $userDownloads -or $normPath.StartsWith($userDownloads + "\", [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $false
+    }
+
     # Check if path contains any forbidden patterns (passwords, downloads, bookmarks)
     foreach ($forbidden in $forbiddenPaths) {
-        if ($Path -like "*$forbidden*") {
+        if ($normPath -like "*$forbidden*") {
             return $false
         }
     }
-    
+
+    # Strict check for any Download or Downloads path segment
+    if ($normPath -match '(?i)[\\/]Downloads?([\\/]|$)') {
+        return $false
+    }
+
     return $true
 }
 

@@ -20,7 +20,7 @@ $PSDefaultParameterValues["*:WhatIf"]  = $false
 # Paths never deleted (passwords, autofill, Downloads, self-install folder, Quick Access / Explorer shell state)
 $script:SkipPathFragments = @(
     "\Login Data", "\Login Data For Account", "\key4.db", "\formhistory.sqlite",
-    "\Web Data", "\Web Data-journal", "\Autofill", "\Downloads", "\MyCleanPC\",
+    "\Web Data", "\Web Data-journal", "\Autofill", "\Downloads", "\Downloads\", "Downloads\", "Downloads", "\MyCleanPC\",
     "\Microsoft\Windows\Recent\", "\Microsoft\Windows\History\",
     "\Microsoft\Windows\Recent\AutomaticDestinations", "\Microsoft\Windows\Recent\CustomDestinations"
 )
@@ -401,9 +401,24 @@ $script:JunkDirNames = @(
 
 function Test-SkipCleanPath {
     param([string]$Path)
-    foreach ($frag in $script:SkipPathFragments) {
-        if ($Path -like "*$frag*") { return $true }
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    $normPath = $Path -replace '/', '\'
+
+    # Absolute safeguard for User Profile Downloads folder and subitems
+    $userDownloads = Join-Path $env:USERPROFILE "Downloads"
+    if ($normPath -ieq $userDownloads -or $normPath.StartsWith($userDownloads + "\", [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $true
     }
+
+    foreach ($frag in $script:SkipPathFragments) {
+        if ($normPath -like "*$frag*") { return $true }
+    }
+
+    # Strict check for any Download or Downloads path segment
+    if ($normPath -match '(?i)[\\/]Downloads?([\\/]|$)') {
+        return $true
+    }
+
     return $false
 }
 
@@ -497,6 +512,7 @@ function Remove-PathViaCmd {
         [Parameter(Mandatory)][string]$LiteralPath,
         [switch]$Recurse
     )
+    if (Test-SkipCleanPath $LiteralPath) { return $false }
     if (-not (Test-Path -LiteralPath $LiteralPath)) { return $true }
     Clear-PathAttributes $LiteralPath
     $isDir = Test-Path -LiteralPath $LiteralPath -PathType Container
@@ -537,6 +553,7 @@ function Remove-PathViaDotNet {
         [Parameter(Mandatory)][string]$LiteralPath,
         [switch]$Recurse
     )
+    if (Test-SkipCleanPath $LiteralPath) { return $false }
     if (-not (Test-Path -LiteralPath $LiteralPath)) { return $true }
     try {
         if ([System.IO.Directory]::Exists($LiteralPath)) {
@@ -577,6 +594,7 @@ function Remove-PathViaDotNet {
 # Locked files are silently skipped by robocopy - no Explorer dialog ever appears.
 function Clear-DirectoryViaRobocopy {
     param([string]$TargetPath)
+    if (Test-SkipCleanPath $TargetPath) { return 0 }
     if (-not (Test-Path $TargetPath)) { return 0 }
     $targetNorm = ([System.IO.Path]::GetFullPath($TargetPath)).TrimEnd('\') + '\'
     $stagingRoot = Get-CleanerStagingRoot
