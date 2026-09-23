@@ -8,17 +8,23 @@ $ErrorActionPreference = "SilentlyContinue"
 $ConfirmPreference = "None"
 $ProgressPreference = "SilentlyContinue"
 $logFile = Join-Path $PSScriptRoot "cleanup_log.txt"
+$tempLogFile = Join-Path $PSScriptRoot "temp_cleaner_log.txt"
 
 $corePath = Join-Path $PSScriptRoot "clean-pc-core.ps1"
 if (-not (Test-Path $corePath)) {
-    Add-Content -Path $logFile -Value "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] ERROR: clean-pc-core.ps1 not found beside cleanup_task.ps1"
+    $errLine = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] ERROR: clean-pc-core.ps1 not found beside cleanup_task.ps1"
+    Add-Content -Path $logFile -Value $errLine -ErrorAction SilentlyContinue
+    Add-Content -Path $tempLogFile -Value $errLine -ErrorAction SilentlyContinue
     exit 1
 }
 . $corePath
 
 function Write-Log {
     param([string]$Message)
-    Add-Content -Path $logFile -Value "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $Message" -ErrorAction SilentlyContinue
+    $logLine = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $Message"
+    Write-Host $logLine
+    Add-Content -Path $logFile -Value $logLine -ErrorAction SilentlyContinue
+    Add-Content -Path $tempLogFile -Value $logLine -ErrorAction SilentlyContinue
 }
 
 try {

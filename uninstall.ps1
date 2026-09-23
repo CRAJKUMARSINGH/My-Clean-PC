@@ -8,7 +8,7 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     exit 1
 }
 
-$taskNames = @("MyCleanPC-24Min", "MyCleanPC-Weekly", "MyCleanPC-AI-Cache", "24-Silent-Cleaner", "MyCleanPC")
+$taskNames = @("MyCleanPC-7Min", "MyCleanPC-24Min", "MyCleanPC-Weekly", "MyCleanPC-AI-Cache", "24-Silent-Cleaner", "MyCleanPC")
 foreach ($t in $taskNames) {
     Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction SilentlyContinue
 }

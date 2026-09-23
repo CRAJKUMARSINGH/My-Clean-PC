@@ -30,11 +30,12 @@ cd My-Clean-PC
 
 **⚠️ IMPORTANT: Must be run with Administrator Privileges**
 
-You can install **Both Cleaners**, the **24-Minute Cleaner ONLY**, or the **Weekly Cleaner ONLY**:
+You can install **Both Cleaners**, the **7-Minute Cleaner ONLY**, the **24-Minute Cleaner ONLY**, or the **Weekly Cleaner ONLY**:
 
 | Desired Setup | 1-Click Batch File | PowerShell Command (Run as Admin) |
 |---|---|---|
 | **Install BOTH Cleaners** | Double-click `Launch-Install-Both.bat` | `powershell -ExecutionPolicy Bypass -File Install-Cleaners-Admin.ps1 -Task Both` |
+| **Install 7-Min Cleaner ONLY** | Double-click `Launch-Install-7Min-Only.bat` | `powershell -ExecutionPolicy Bypass -File Install-Cleaners-Admin.ps1 -Task 7Min` |
 | **Install 24-Min Cleaner ONLY** | Double-click `Launch-Install-24Min-Only.bat` | `powershell -ExecutionPolicy Bypass -File Install-Cleaners-Admin.ps1 -Task 24Min` |
 | **Install Weekly Cleaner ONLY** | Double-click `Launch-Install-Weekly-Only.bat` | `powershell -ExecutionPolicy Bypass -File Install-Cleaners-Admin.ps1 -Task Weekly` |
 
@@ -42,6 +43,9 @@ You can install **Both Cleaners**, the **24-Minute Cleaner ONLY**, or the **Week
 
 ## ⚙️ Installed Cleaner Sets
 
+- **`MyCleanPC-7Min`**
+  - **Interval**: Repeats automatically **every 7 minutes** when PC is ON.
+  - **Behavior**: Runs completely hidden, cleaning caches & temp files without closing any running browsers or AI tools.
 - **`MyCleanPC-24Min`**
   - **Interval**: Repeats automatically **every 24 minutes** when PC is ON.
   - **Behavior**: Runs completely hidden without closing any running browsers or AI tools.
@@ -51,13 +55,26 @@ You can install **Both Cleaners**, the **24-Minute Cleaner ONLY**, or the **Week
 
 ---
 
+## 📋 Cleaner Log Files
+
+| Log File | Script / Source | Description |
+|---|---|---|
+| **`ai_cleaner_log.txt`** | `scripts/ai-cache-cleaner.ps1` | Logs AI tools & browser cache cleaning runs (runs on 7-min / 24-min schedule). |
+| **`temp_cleaner_log.txt`** | `scripts/clean-pc-core.ps1` | Logs deep temporary files, AppData junk sweeps, Prefetch, Recycle Bin, and Disk Cleanup operations. |
+| **`cleanup_log.txt`** | `scripts/cleanup_task.ps1` | Logs weekly scheduled full cleanup operations. |
+
+*Note: Log files are automatically generated and saved in `%LOCALAPPDATA%\MyCleanPC\` (when installed) as well as the script folder.*
+
+---
+
 ## 📂 Repository Script Breakdown & Functions
 
 | File / Script Path | Type | Function & Description |
 |---|---|---|
-| **[`Install-Cleaners-Admin.ps1`](Install-Cleaners-Admin.ps1)** | PowerShell Universal Installer | **Universal Installer**: Auto-elevates to Administrator and registers `Both` tasks, `24Min` task only, or `Weekly` task only based on `-Task` parameter. |
+| **[`Install-Cleaners-Admin.ps1`](Install-Cleaners-Admin.ps1)** | PowerShell Universal Installer | **Universal Installer**: Auto-elevates to Administrator and registers `Both` tasks (7Min + Weekly), `7Min` task only, `24Min` task only, or `Weekly` task only based on `-Task` parameter. |
 | **[`Install-Both-Cleaners-Admin.ps1`](Install-Both-Cleaners-Admin.ps1)** | PowerShell Wrapper | **Both Task Installer Wrapper**: Backward-compatible script executing `Install-Cleaners-Admin.ps1 -Task Both`. |
-| **[`Launch-Install-Both.bat`](Launch-Install-Both.bat)** | Batch Launcher | **1-Click Launcher (Both)**: Triggers UAC elevation and installs both `MyCleanPC-24Min` and `MyCleanPC-Weekly`. |
+| **[`Launch-Install-Both.bat`](Launch-Install-Both.bat)** | Batch Launcher | **1-Click Launcher (Both)**: Triggers UAC elevation and installs both `MyCleanPC-7Min` and `MyCleanPC-Weekly`. |
+| **[`Launch-Install-7Min-Only.bat`](Launch-Install-7Min-Only.bat)** | Batch Launcher | **1-Click Launcher (7Min Only)**: Triggers UAC elevation and installs only `MyCleanPC-7Min`. |
 | **[`Launch-Install-24Min-Only.bat`](Launch-Install-24Min-Only.bat)** | Batch Launcher | **1-Click Launcher (24Min Only)**: Triggers UAC elevation and installs only `MyCleanPC-24Min`. |
 | **[`Launch-Install-Weekly-Only.bat`](Launch-Install-Weekly-Only.bat)** | Batch Launcher | **1-Click Launcher (Weekly Only)**: Triggers UAC elevation and installs only `MyCleanPC-Weekly`. |
 | **[`scripts/ai-cache-cleaner.ps1`](scripts/ai-cache-cleaner.ps1)** | PowerShell Cleaner Engine | **Primary Cleaner Engine**: Executes targeted cleanup of browser caches, cookies, history, storage, AI tool caches, AppData Roaming folders, temp files, and deletes registry `MachineGuid`. |

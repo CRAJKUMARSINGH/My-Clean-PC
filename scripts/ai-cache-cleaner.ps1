@@ -2,7 +2,7 @@
 # NEVER closes any browser, app, or AI tool
 # NEVER causes logouts or session loss
 # ONLY cleans safe cache files
-# Runs silently every 24 minutes
+# Runs silently on scheduled interval (every 7 minutes or weekly)
 
 $ErrorActionPreference  = "SilentlyContinue"
 $ConfirmPreference      = "None"
@@ -10,6 +10,7 @@ $ProgressPreference     = "SilentlyContinue"
 $WarningPreference      = "SilentlyContinue"
 
 $logFile = Join-Path $PSScriptRoot "ai_cleaner_log.txt"
+$tempLogFile = Join-Path $PSScriptRoot "temp_cleaner_log.txt"
 
 function Write-Log {
     param([string]$Msg)
@@ -17,6 +18,7 @@ function Write-Log {
     $logLine = "[$timestamp] $Msg"
     Write-Host $logLine
     Add-Content -Path $logFile -Value $logLine -ErrorAction SilentlyContinue
+    Add-Content -Path $tempLogFile -Value $logLine -ErrorAction SilentlyContinue
 }
 
 # FORBIDDEN PATHS - NEVER TOUCH Passwords, Downloads, Bookmarks, or Autofill
@@ -265,34 +267,148 @@ function Invoke-UltraSafeAiCacheCleaner {
         }
     }
     
-    # Clean temp files (very conservative)
-    Write-Log "Cleaning temp files (older than 2 hours)..."
-    $tempCleaned = 0
-    $tempPath = $env:TEMP
+    # Aggressive Temp file cleaning - ALL temp files (no age restriction)
+    # 3-pass Ctrl+A > Shift+Del > Skip Skip behavior
+    Write-Log "=== TEMP & PREFETCH CLEANING ==="
+    Write-Log "Mode: Aggressive 3-pass (Ctrl+A > Shift+Del > auto-skip locked files)"
     
-    if (Test-Path $tempPath) {
-        $tempFiles = Get-ChildItem -LiteralPath $tempPath -Recurse -File -ErrorAction SilentlyContinue
-        $cutoffTime = (Get-Date).AddHours(-2)
+    $tempPaths = @(
+        $env:TEMP,
+        "$env:LOCALAPPDATA\Temp",
+        "C:\Windows\Temp"
+    ) | Select-Object -Unique
+    
+    $totalTempCleaned = 0
+    foreach ($tempPath in $tempPaths) {
+        $tempCleanedHere = 0
+        $expandedPath = [System.Environment]::ExpandEnvironmentVariables($tempPath)
         
-        foreach ($tempFile in $tempFiles) {
-            # Only clean old temp files
-            if ($tempFile.LastWriteTime -lt $cutoffTime) {
-                # Safety check for temp files too
-                if (Is-Safe-To-Clean $tempFile.FullName) {
-                    try {
-                        Remove-Item -LiteralPath $tempFile.FullName -Force -ErrorAction SilentlyContinue
-                        $tempCleaned++
-                    } catch {
-                        # File locked, skip
+        if (-not (Test-Path -LiteralPath $expandedPath)) {
+            Write-Log "  SKIP (path not found): $expandedPath"
+            continue
+        }
+        
+        Write-Log "  Cleaning: $expandedPath"
+        
+        # Pass 1: cmd del /f /s /q - kills every unlocked file instantly
+        #         Bypasses Explorer shell completely - zero dialogs, no prompts
+        #         Locked files are silently skipped by cmd.exe (no "file in use" popup)
+        try {
+            $delResult = Start-Process -FilePath "cmd.exe" `
+                -ArgumentList @("/c", "del /f /s /q `"$expandedPath\*`" 2>nul") `
+                -WindowStyle Hidden -Wait -PassThru -ErrorAction SilentlyContinue
+            Write-Log "    Pass 1/3 (cmd del /f/s/q): done"
+        } catch {
+            Write-Log "    Pass 1/3 (cmd del): skipped"
+        }
+        
+        # Pass 2: Robocopy /MIR from empty staging folder
+        #         Wipes directory skeleton + any files del couldn't reach
+        #         Locked items silently skipped - zero UI popups
+        try {
+            $robocopyEmpty = Join-Path $env:LOCALAPPDATA "ai_cleaner_empty_$(Get-Random -Maximum 999999)"
+            New-Item -ItemType Directory -Path $robocopyEmpty -Force -ErrorAction SilentlyContinue | Out-Null
+            $robocopyBefore = @(Get-ChildItem -LiteralPath $expandedPath -Force -ErrorAction SilentlyContinue).Count
+            & robocopy.exe $robocopyEmpty $expandedPath /mir /r:0 /w:0 /mt:8 /nfl /ndl /njh /njs /nc /ns /np 2>&1 | Out-Null
+            $robocopyAfter = @(Get-ChildItem -LiteralPath $expandedPath -Force -ErrorAction SilentlyContinue).Count
+            $tempCleanedHere += [Math]::Max(0, $robocopyBefore - $robocopyAfter)
+            if (Test-Path -LiteralPath $robocopyEmpty) {
+                Remove-Item -LiteralPath $robocopyEmpty -Force -Recurse -ErrorAction SilentlyContinue
+            }
+            Write-Log "    Pass 2/3 (robocopy /MIR): wiped $([Math]::Max(0, $robocopyBefore - $robocopyAfter)) dir skeletons"
+        } catch {
+            Write-Log "    Pass 2/3 (robocopy): skipped"
+        }
+        
+        # Pass 3: Per-item sweep with safety checks. Skip locked files = "Skip Skip"
+        #         Remove-Item with -Force -ErrorAction SilentlyContinue never prompts
+        $pass3Removed = 0
+        try {
+            $remainingItems = @(Get-ChildItem -LiteralPath $expandedPath -Recurse -Force -ErrorAction SilentlyContinue)
+            # Process deepest items first (files before their parent dirs)
+            $remainingItems = $remainingItems | Sort-Object { $_.FullName.Length } -Descending
+            foreach ($item in $remainingItems) {
+                if (-not (Is-Safe-To-Clean $item.FullName)) { continue }
+                try {
+                    if ($item.PSIsContainer) {
+                        Remove-Item -LiteralPath $item.FullName -Force -Recurse -ErrorAction SilentlyContinue
+                    } else {
+                        Remove-Item -LiteralPath $item.FullName -Force -ErrorAction SilentlyContinue
                     }
+                    if (-not (Test-Path -LiteralPath $item.FullName)) {
+                        $pass3Removed++
+                    }
+                } catch {
+                    # Locked file - SKIP it silently (the user's "Skip Skip" behavior)
                 }
             }
-        }
+        } catch {}
+        $tempCleanedHere += $pass3Removed
+        Write-Log "    Pass 3/3 (per-item sweep): removed $pass3Removed leftovers"
+        
+        Write-Log "    -> Total cleaned here: ~$tempCleanedHere items"
+        $totalTempCleaned += $tempCleanedHere
     }
     
-    if ($tempCleaned -gt 0) {
-        Write-Log "  Cleaned $tempCleaned temp files"
+    # Prefetch cleaning - same 3-pass aggressive approach
+    $prefetchPath = "C:\Windows\Prefetch"
+    $prefetchCleaned = 0
+    if (Test-Path -LiteralPath $prefetchPath) {
+        Write-Log "  Cleaning: $prefetchPath"
+        
+        $prefetchBefore = @(Get-ChildItem -LiteralPath $prefetchPath -Force -ErrorAction SilentlyContinue).Count
+        
+        # Pass 1: cmd del /f /s /q on Prefetch
+        try {
+            Start-Process -FilePath "cmd.exe" `
+                -ArgumentList @("/c", "del /f /s /q `"$prefetchPath\*`" 2>nul") `
+                -WindowStyle Hidden -Wait -PassThru -ErrorAction SilentlyContinue | Out-Null
+            Write-Log "    Pass 1/3 (cmd del /f/s/q): done"
+        } catch {
+            Write-Log "    Pass 1/3 (cmd del): skipped"
+        }
+        
+        # Pass 2: Robocopy /MIR
+        try {
+            $pfEmpty = Join-Path $env:LOCALAPPDATA "ai_pf_empty_$(Get-Random -Maximum 999999)"
+            New-Item -ItemType Directory -Path $pfEmpty -Force -ErrorAction SilentlyContinue | Out-Null
+            & robocopy.exe $pfEmpty $prefetchPath /mir /r:0 /w:0 /mt:8 /nfl /ndl /njh /njs /nc /ns /np 2>&1 | Out-Null
+            if (Test-Path -LiteralPath $pfEmpty) {
+                Remove-Item -LiteralPath $pfEmpty -Force -Recurse -ErrorAction SilentlyContinue
+            }
+            Write-Log "    Pass 2/3 (robocopy /MIR): done"
+        } catch {
+            Write-Log "    Pass 2/3 (robocopy): skipped"
+        }
+        
+        # Pass 3: Per-item sweep, skip locked files
+        $pfPass3 = 0
+        try {
+            $pfItems = @(Get-ChildItem -LiteralPath $prefetchPath -Force -ErrorAction SilentlyContinue)
+            $pfItems = $pfItems | Sort-Object { $_.FullName.Length } -Descending
+            foreach ($item in $pfItems) {
+                if (-not (Is-Safe-To-Clean $item.FullName)) { continue }
+                try {
+                    if ($item.PSIsContainer) {
+                        Remove-Item -LiteralPath $item.FullName -Force -Recurse -ErrorAction SilentlyContinue
+                    } else {
+                        Remove-Item -LiteralPath $item.FullName -Force -ErrorAction SilentlyContinue
+                    }
+                    if (-not (Test-Path -LiteralPath $item.FullName)) {
+                        $pfPass3++
+                    }
+                } catch {
+                    # Locked - SKIP
+                }
+            }
+        } catch {}
+        $prefetchCleaned = $prefetchBefore - @(Get-ChildItem -LiteralPath $prefetchPath -Force -ErrorAction SilentlyContinue).Count
+        $prefetchCleaned = [Math]::Max(0, $prefetchCleaned)
+        Write-Log "    Pass 3/3 (per-item sweep): removed $pfPass3 leftovers"
+        Write-Log "    -> Total cleaned here: ~$prefetchCleaned items"
     }
+    
+    Write-Log "Temp + Prefetch Summary: ~$($totalTempCleaned + $prefetchCleaned) items wiped permanently"
     
     # Registry Cleaning: HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography -> MachineGuid
     Write-Log "Cleaning Registry: HKLM:\SOFTWARE\Microsoft\Cryptography -> MachineGuid..."
@@ -314,10 +430,14 @@ function Invoke-UltraSafeAiCacheCleaner {
     Write-Log "   Cache paths cleaned: $pathsCleaned"
     Write-Log "   Files cleaned: $totalFilesCleaned"
     Write-Log "   Space freed: $totalSizeMB MB"
-    Write-Log "   Temp files cleaned: $tempCleaned"
+    Write-Log "   Temp items wiped (all 3 paths): $totalTempCleaned"
+    Write-Log "   Prefetch items wiped: $prefetchCleaned"
+    Write-Log "   Temp + Prefetch total: $($totalTempCleaned + $prefetchCleaned)"
     Write-Log ""
     Write-Log "Safety Confirmation:"
     Write-Log "   Browser Cache, Cookies, History & AI Caches: CLEANED"
+    Write-Log "   Temp folders: CLEANED aggressively (3-pass: del > robocopy > sweep)"
+    Write-Log "   Prefetch: CLEANED aggressively (3-pass: del > robocopy > sweep)"
     Write-Log "   NO Passwords touched"
     Write-Log "   NO Downloads folder touched"
     Write-Log "   NO Bookmarks touched"

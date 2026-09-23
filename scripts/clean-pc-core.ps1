@@ -1,6 +1,8 @@
 # My Clean PC - shared cleaning core (single source of truth)
 # Dot-source from my-clean-pc.ps1, cleanup_task.ps1, etc.
-# Passwords (Login Data, key4.db), autofill data, Downloads, and Quick Access pins are NEVER touched.
+# PASSWORDS (Login Data, key4.db, logins.json) are NEVER touched.
+# Autofill / saved form-fill data WILL be deleted (user authorised).
+# Downloads and Quick Access pins are NEVER touched.
 
 # ---- Non-interactive bypass: auto-answer Yes/OK/All to any prompt --------
 $ErrorActionPreference  = "SilentlyContinue"
@@ -17,16 +19,51 @@ $PSDefaultParameterValues["*:Force"]   = $true
 $PSDefaultParameterValues["*:WhatIf"]  = $false
 # -------------------------------------------------------------------------
 
-# Paths never deleted (passwords, autofill, Downloads, self-install folder, Quick Access / Explorer shell state)
+# Paths NEVER deleted: passwords, Downloads, self-install folder, Quick Access / Explorer shell state.
+# Web Data (Chrome autofill), formhistory.sqlite (Firefox autofill), and Autofill folder are NOT
+# protected here — user has authorised deleting all saved form fills. Only passwords are kept.
 $script:SkipPathFragments = @(
-    "\Login Data", "\Login Data For Account", "\key4.db", "\formhistory.sqlite",
-    "\Web Data", "\Web Data-journal", "\Autofill", "\Downloads", "\Downloads\", "Downloads\", "Downloads", "\MyCleanPC\",
+    "\Login Data", "\Login Data For Account", "\key4.db", "\logins.json", "\logins-backup.json",
+    "\Downloads", "\Downloads\", "Downloads\", "Downloads", "\MyCleanPC\",
     "\Microsoft\Windows\Recent\", "\Microsoft\Windows\History\",
     "\Microsoft\Windows\Recent\AutomaticDestinations", "\Microsoft\Windows\Recent\CustomDestinations"
 )
 
 # Temp roots already cleared this run (avoids duplicate passes that can re-trigger shell UI)
 $script:ProcessedTempRoots = @{}
+
+# ---- Temp File Cleaner Logging Helper -----------------------------------
+
+function Write-TempCleanerLog {
+    param(
+        [string]$Message,
+        [scriptblock]$UserLog = $null
+    )
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    $logLine = "[$timestamp] $Message"
+    
+    if ($null -ne $UserLog) {
+        try { & $UserLog $Message } catch {}
+    } else {
+        Write-Host $logLine
+    }
+    
+    $logPaths = @(
+        (Join-Path $PSScriptRoot "temp_cleaner_log.txt"),
+        (Join-Path $PSScriptRoot "cleanup_log.txt"),
+        (Join-Path "$env:LOCALAPPDATA\MyCleanPC" "temp_cleaner_log.txt"),
+        (Join-Path "$env:LOCALAPPDATA\MyCleanPC" "cleanup_log.txt")
+    ) | Select-Object -Unique
+
+    foreach ($lp in $logPaths) {
+        try {
+            $dir = Split-Path $lp -Parent
+            if ($dir -and (Test-Path -LiteralPath $dir)) {
+                Add-Content -Path $lp -Value $logLine -ErrorAction SilentlyContinue
+            }
+        } catch {}
+    }
+}
 
 # ---- Space-freed helpers ------------------------------------------------
 
@@ -311,6 +348,7 @@ function Get-CleanupEstimate {
     AddHit ([System.Environment]::ExpandEnvironmentVariables('%TEMP%'))             'User Temp'
     AddHit ([System.Environment]::ExpandEnvironmentVariables('%LOCALAPPDATA%\Temp')) 'LocalAppData\Temp'
     AddHit 'C:\Windows\Temp'                                                         'Windows\Temp'
+    AddHit 'C:\Windows\Prefetch'                                                     'Windows\Prefetch'
 
     # Cursor/Windsurf/Trae/Devin/Antigravity/Kiro Roaming profiles are wiped whole
     foreach ($p in @(Get-AiCacheTargetPaths)) {
@@ -404,17 +442,40 @@ function Test-SkipCleanPath {
     if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
     $normPath = $Path -replace '/', '\'
 
-    # Absolute safeguard for User Profile Downloads folder and subitems
+    # Absolute safeguard for CURRENT User Profile Downloads folder and all subitems
     $userDownloads = Join-Path $env:USERPROFILE "Downloads"
     if ($normPath -ieq $userDownloads -or $normPath.StartsWith($userDownloads + "\", [System.StringComparison]::OrdinalIgnoreCase)) {
         return $true
     }
 
+    # Absolute safeguard for ALL user profile Downloads folders (C:\Users\*\Downloads)
+    # Catches every user on the PC, not just the one running the script
+    try {
+        $usersRoot = [System.IO.Directory]::GetParent($env:USERPROFILE).FullName
+        if (-not $usersRoot) { $usersRoot = 'C:\Users' }
+        foreach ($ud in @(Get-ChildItem -LiteralPath $usersRoot -Directory -ErrorAction SilentlyContinue)) {
+            $udl = Join-Path $ud.FullName 'Downloads'
+            if ($normPath -ieq $udl -or $normPath.StartsWith($udl + "\", [System.StringComparison]::OrdinalIgnoreCase)) {
+                return $true
+            }
+        }
+    } catch {}
+
+    # Password database absolute guard (Chromium + Firefox)
+    # ONLY password files are protected. Web Data (autofill) and formhistory.sqlite (autofill)
+    # are intentionally NOT in this list — user authorised deleting all saved form fills.
+    $pwNames = @(
+        'Login Data', 'Login Data For Account',
+        'key3.db', 'key4.db', 'logins.json', 'logins-backup.json', 'signons.sqlite'
+    )
+    $leaf = Split-Path $normPath -Leaf
+    if ($leaf -and ($pwNames -icontains $leaf)) { return $true }
+
     foreach ($frag in $script:SkipPathFragments) {
         if ($normPath -like "*$frag*") { return $true }
     }
 
-    # Strict check for any Download or Downloads path segment
+    # Strict check for any Download or Downloads path segment on ANY drive
     if ($normPath -match '(?i)[\\/]Downloads?([\\/]|$)') {
         return $true
     }
@@ -1045,40 +1106,94 @@ function Remove-SafePath {
 }
 
 function Clear-SafeTempTree {
-    # Combined del /f /s /q  +  Robocopy /MIR approach for Temp folders.
+    # Aggressive 3-stage cleanup for Temp / Prefetch / Cache tree roots.
+    # Mimics: Open folder -> Ctrl+A (select all) -> Shift+Del (permanent delete)
+    #         -> Skip -> Skip (auto-skip locked/in-use files, zero dialogs).
     #
-    # Why two passes?
-    #   Pass 1  - cmd "del /f /s /q path\*"
-    #             Kills every unlocked file instantly (force, recurse, quiet).
-    #             /f bypasses read-only; /s recurses subdirs; /q no confirmation.
-    #             Completely bypasses the Explorer shell - zero dialogs.
-    #             Locked files are silently skipped by cmd.exe (no dialog).
+    # Stage 1  - cmd "del /f /s /q root\*"
+    #            Kills every unlocked FILE instantly. /f bypasses read-only,
+    #            /s recurses subdirs, /q no confirmation. Bypasses Explorer shell.
+    #            Locked files silently skipped by cmd.exe (no dialog).
     #
-    #   Pass 2  - Robocopy /MIR from an empty staging folder
-    #             Wipes the remaining directory skeleton and any files
-    #             that del couldn't reach (deep paths, unusual attributes).
-    #             Also silent and dialog-free. Locked items are skipped.
+    # Stage 2  - item-by-item cmd.exe rd/s/q + del sweep
+    #            Ctrl+A Shift+Del behavior on every child.
+    #            Removes dir skeletons and any files Stage 1 couldn't reach.
+    #            Protected paths (Downloads, passwords) are explicitly skipped.
     #
-    #   Pass 3  - MoveFileEx DELAY_UNTIL_REBOOT
-    #             Anything still present (genuinely locked by another process)
-    #             is registered for silent deletion at the next Windows boot.
+    # Stage 3  - Robocopy /MIR + .NET item-by-item sweep
+    #            Wipes remaining directory skeleton and any leftover files.
+    #            Robocopy silently skips locked files (Exit 0..8).
+    #            .NET delete handles unusual attributes / deep paths.
+    #            === "Skip, Skip" - locked items are left alone this run. ===
+    #
+    # Stage 4  - MoveFileEx DELAY_UNTIL_REBOOT on individual leftover items ONLY
+    #            Anything still present (genuinely locked by another process)
+    #            is registered ONE-BY-ONE for silent deletion at next Windows boot.
+    #            We NEVER register the root folder itself for reboot-delete.
     param([string]$RootPath)
     $root = [System.Environment]::ExpandEnvironmentVariables($RootPath)
     if (-not (Test-Path $root)) { return 0 }
     $key = ([System.IO.Path]::GetFullPath($root)).TrimEnd('\').ToLowerInvariant()
     if ($script:ProcessedTempRoots.ContainsKey($key)) { return $script:ProcessedTempRoots[$key] }
 
-    # Pass 1: del /f /s /q - fast file-kill, no Explorer shell, no dialogs
+    $before = @(Get-ChildItem -LiteralPath $root -Force -ErrorAction SilentlyContinue).Count
+
+    # ---- Stage 1: del /f /s /q  (unlock and kill every reachable file) -----
     $null = Invoke-ProcessAnswerAll -FilePath 'cmd.exe' `
         -ArgumentList @('/c', "del /f /s /q `"$root\*`"")
-
-    # Pass 2: Robocopy /MIR - wipe remaining dirs and any files del skipped
-    $removed = Clear-DirectoryViaRobocopy $root
-
-    # Pass 3: register the temp root for next-boot deletion if still full of locked files
-    if (@(Get-ChildItem -LiteralPath $root -Force -ErrorAction SilentlyContinue).Count -gt 0) {
-        Register-DeleteOnReboot -LiteralPath $root
+    # Also try rd /s /q on direct subdirectories first pass (empty dirs + contents)
+    foreach ($child in @(Get-ChildItem -LiteralPath $root -Force -ErrorAction SilentlyContinue)) {
+        if (Test-SkipCleanPath $child.FullName) { continue }
+        if ($child.PSIsContainer) {
+            Remove-PathViaCmd -LiteralPath $child.FullName -Recurse | Out-Null
+        } else {
+            Remove-PathViaCmd -LiteralPath $child.FullName | Out-Null
+        }
     }
+
+    # ---- Stage 2: Ctrl+A Shift+Del item-by-item (rd /s /q + del sweep) ----
+    foreach ($child in @(Get-ChildItem -LiteralPath $root -Force -ErrorAction SilentlyContinue)) {
+        if (Test-SkipCleanPath $child.FullName) { continue }
+        Clear-PathAttributes $child.FullName
+        if ($child.PSIsContainer) {
+            # Ctrl+A -> Shift+Del on the folder: permanent recursive delete
+            Remove-PathViaCmd -LiteralPath $child.FullName -Recurse | Out-Null
+            # Fallback: robocopy wipe container then cmd rd
+            if (Test-Path -LiteralPath $child.FullName) {
+                Clear-DirectoryViaRobocopy $child.FullName | Out-Null
+                Remove-PathViaCmd -LiteralPath $child.FullName -Recurse | Out-Null
+            }
+        } else {
+            # Shift+Del on the file (permanent, skip locked)
+            Remove-PathViaCmd -LiteralPath $child.FullName | Out-Null
+            Remove-SafePathWithRetry -LiteralPath $child.FullName -MaxRetries 2 | Out-Null
+        }
+    }
+
+    # ---- Stage 3: Robocopy /MIR + .NET item-by-item (Skip, Skip) -----------
+    Clear-DirectoryViaRobocopy $root | Out-Null
+    foreach ($child in @(Get-ChildItem -LiteralPath $root -Force -ErrorAction SilentlyContinue)) {
+        if (Test-SkipCleanPath $child.FullName) { continue }
+        if ($child.PSIsContainer) {
+            Remove-DirectorySilent -LiteralPath $child.FullName -KeepContainer | Out-Null
+            Remove-PathViaDotNet -LiteralPath $child.FullName -Recurse | Out-Null
+        } else {
+            Remove-PathViaDotNet -LiteralPath $child.FullName | Out-Null
+        }
+    }
+
+    # ---- Stage 4: ONLY leftover CHILD items get reboot-delete (NOT root) --
+    # This is the critical fix: we NEVER register the whole root Temp/Prefetch
+    # folder itself for reboot-delete.  We enumerate each remaining child and
+    # register those individually.  Locked files are deleted at next boot.
+    $leftover = @(Get-ChildItem -LiteralPath $root -Force -ErrorAction SilentlyContinue)
+    foreach ($item in $leftover) {
+        if (Test-SkipCleanPath $item.FullName) { continue }
+        Register-DeleteOnReboot -LiteralPath $item.FullName
+    }
+
+    $after = @(Get-ChildItem -LiteralPath $root -Force -ErrorAction SilentlyContinue).Count
+    $removed = [Math]::Max(0, $before - $after)
 
     $script:ProcessedTempRoots[$key] = $removed
     return $removed
@@ -1117,6 +1232,7 @@ function Clear-RigorousTempLocations {
     $script:ProcessedTempRoots = @{}
     $fixed = @(
         "%TEMP%", "%LOCALAPPDATA%\Temp", "C:\Windows\Temp",
+        "C:\Windows\Prefetch",
         "%LOCALAPPDATA%\CrashDumps", "%LOCALAPPDATA%\D3DSCache",
         "%LOCALAPPDATA%\Microsoft\Windows\WebCache",
         "%LOCALAPPDATA%\Microsoft\Windows\Burn\Burn"
@@ -1929,7 +2045,10 @@ $script:ChromiumCleanFiles = @(
     "Visited Links", "Top Sites", "Top Sites-journal",
     "Shortcuts", "Shortcuts-journal", "Network Action Predictor",
     "Favicons", "Favicons-journal",
-    "Extension Cookies", "QuotaManager", "Reporting and NEL", "Reporting and NEL-journal"
+    "Extension Cookies", "QuotaManager", "Reporting and NEL", "Reporting and NEL-journal",
+    # Autofill / saved form-fill data (NOT passwords — Login Data is never in this list)
+    "Web Data", "Web Data-journal",
+    "Autofill", "Autofill-journal"
 )
 $script:GeckoCleanDirs = @(
     "cache2", "startupCache", "OfflineCache", "thumbnails", "jumpListCache",
@@ -1939,7 +2058,9 @@ $script:GeckoCleanFiles = @(
     "cookies.sqlite", "cookies.sqlite-shm", "cookies.sqlite-wal",
     "favicons.sqlite", "favicons.sqlite-shm", "favicons.sqlite-wal",
     "webappsstore.sqlite", "content-prefs.sqlite", "permissions.sqlite",
-    "sessionCheckpoints.json"
+    "sessionCheckpoints.json",
+    # Firefox autofill / saved form fills (NOT passwords — key4.db/logins.json never touched)
+    "formhistory.sqlite", "formhistory.sqlite-shm", "formhistory.sqlite-wal"
 )
 
 function Clear-ChromiumBrowserCache {
@@ -1979,7 +2100,8 @@ function Clear-ChromiumBrowserCache {
             Remove-SafePathWithRetry -LiteralPath $networkCookies | Out-Null
             Remove-SafePathWithRetry -LiteralPath ($networkCookies + '-journal') | Out-Null
         }
-        # Login Data + Web Data intentionally SKIPPED (passwords and autofill safe)
+        # Login Data intentionally SKIPPED (passwords safe).
+        # Web Data (autofill) IS deleted above — user authorised wiping saved form fills.
     }
 }
 
@@ -2013,8 +2135,9 @@ function Clear-GeckoBrowserProfiles {
         foreach ($f in $script:GeckoCleanFiles) {
             Remove-SafePathWithRetry -LiteralPath (Join-Path $p $f) | Out-Null
         }
-        # key4.db, formhistory.sqlite, and places.sqlite intentionally SKIPPED
-        # to protect passwords, autofill, and bookmarks.
+        # key4.db, logins.json intentionally SKIPPED — passwords are never touched.
+        # formhistory.sqlite IS deleted above — user authorised wiping Firefox saved form fills.
+        # places.sqlite intentionally SKIPPED — protects bookmarks and browsing history DB.
     }
 }
 
@@ -2179,6 +2302,13 @@ function Invoke-MyCleanPCCore {
         [switch]$ManageWindowsUpdateService
     )
 
+    # Wrap log parameter so all cleaner output automatically writes to temp_cleaner_log.txt and cleanup_log.txt
+    $userLogDelegate = $Log
+    $Log = {
+        param([string]$Message)
+        Write-TempCleanerLog -Message $Message -UserLog $userLogDelegate
+    }
+
     # Snapshot free space on the system drive before anything is deleted.
     # We re-read it at the end and report the difference as "space freed".
     $sysDrive    = $env:SystemDrive
@@ -2240,42 +2370,65 @@ function Invoke-MyCleanPCCore {
 
     & $Log "-- STEP 3: Temporary Files + Recycle Bin --"
     & $Log "  (Robocopy bulk clear - zero Explorer prompts; locked files auto-skip)"
-    Clear-RigorousTempLocations
-    $localCount = Clear-AppDataJunkSweep "%LOCALAPPDATA%"
-    $roamCount  = Clear-AppDataJunkSweep "%APPDATA%"
+    Clear-RigorousTempLocations -OnItem {
+        param($p)
+        & $Log "  [Temp Folder Cleared] $p"
+    }
+    $localCount = Clear-AppDataJunkSweep "%LOCALAPPDATA%" -OnBatch {
+        param($c)
+        & $Log "  [AppData Local Sweep] Cleared $c junk folders"
+    }
+    $roamCount  = Clear-AppDataJunkSweep "%APPDATA%" -OnBatch {
+        param($c)
+        & $Log "  [AppData Roaming Sweep] Cleared $c junk folders"
+    }
     & $Log "  [Rigorous Temp + AppData] cleared ($localCount local + $roamCount roaming junk folders)."
-    try { Clear-RecycleBinSilent } catch {}
-    & $Log "  [Recycle Bin] emptied."
+    try {
+        Clear-RecycleBinSilent
+        & $Log "  [Recycle Bin] emptied."
+    } catch {
+        & $Log "  [Recycle Bin] skip: $($_.Exception.Message)"
+    }
 
     & $Log "-- STEP 4: Prefetch (Quick Access / Recent folder NOT touched) --"
-    # Admin-level deletion of entire Prefetch directory contents
     $prefetchPath = "C:\Windows\Prefetch"
     if (Test-Path $prefetchPath) {
         try {
-            # Stop Windows Search service if running to unlock Prefetch files
-            $searchSvc = Get-Service -Name "WSearch" -ErrorAction SilentlyContinue
-            if ($searchSvc -and $searchSvc.Status -eq "Running") {
-                Stop-Service -Name "WSearch" -Force -ErrorAction SilentlyContinue
-                Start-Sleep -Seconds 2
+            $prefetchBefore = @(Get-ChildItem -LiteralPath $prefetchPath -Force -ErrorAction SilentlyContinue).Count
+
+            # Pass 1: Full 3-stage Clear-SafeTempTree (del /f/s/q + robocopy /MIR + reboot-delete)
+            & $Log "  [Prefetch] Pass 1/3: 3-stage silent wipe (del + robocopy)..."
+            Clear-SafeTempTree $prefetchPath | Out-Null
+
+            # Pass 2: Aggressive cmd rd/s/q + del sweep on individual items
+            & $Log "  [Prefetch] Pass 2/3: cmd.exe rd/s/q on all subitems (Ctrl+A Shift+Del behavior)..."
+            foreach ($child in @(Get-ChildItem -LiteralPath $prefetchPath -Force -ErrorAction SilentlyContinue)) {
+                if (Test-SkipCleanPath $child.FullName) { continue }
+                if ($child.PSIsContainer) {
+                    Remove-PathViaCmd -LiteralPath $child.FullName -Recurse | Out-Null
+                } else {
+                    Remove-PathViaCmd -LiteralPath $child.FullName | Out-Null
+                }
             }
-            
-            # Clear all Prefetch files using multiple methods for admin-level deletion
-            Get-ChildItem $prefetchPath -Filter "*.pf" -ErrorAction SilentlyContinue | ForEach-Object {
-                Remove-SafePathWithRetry -LiteralPath $_.FullName | Out-Null
-            }
-            
-            # Use robocopy for aggressive cleanup
-            $emptyDir = Join-Path $env:TEMP "prefetch_empty_$(Get-Random)"
-            New-Item -ItemType Directory -Path $emptyDir -Force | Out-Null
+
+            # Pass 3: Extra robocopy MIR + .NET delete sweep (skip anything still locked = skip skip)
+            & $Log "  [Prefetch] Pass 3/3: Final robocopy + .NET sweep, locked files auto-skipped..."
             Clear-DirectoryViaRobocopy $prefetchPath | Out-Null
-            Remove-Item -Path $emptyDir -Force -ErrorAction SilentlyContinue
-            
-            # Restart Windows Search service if we stopped it
-            if ($searchSvc -and $searchSvc.Status -eq "Running") {
-                Start-Service -Name "WSearch" -ErrorAction SilentlyContinue
+            foreach ($child in @(Get-ChildItem -LiteralPath $prefetchPath -Force -ErrorAction SilentlyContinue)) {
+                if (Test-SkipCleanPath $child.FullName) { continue }
+                Remove-PathViaDotNet -LiteralPath $child.FullName -Recurse | Out-Null
             }
-            
-            & $Log "  [Prefetch] cleared with admin-level deletion. Quick Access pins and Recent folder left intact."
+
+            # Register every leftover locked file for deletion at next boot (Ctrl+Shift+Del permanent)
+            $leftover = @(Get-ChildItem -LiteralPath $prefetchPath -Force -ErrorAction SilentlyContinue)
+            foreach ($item in $leftover) {
+                if (Test-SkipCleanPath $item.FullName) { continue }
+                Register-DeleteOnReboot -LiteralPath $item.FullName
+            }
+
+            $prefetchAfter = @(Get-ChildItem -LiteralPath $prefetchPath -Force -ErrorAction SilentlyContinue).Count
+            $prefetchRemoved = [Math]::Max(0, $prefetchBefore - $prefetchAfter)
+            & $Log "  [Prefetch] Done. Removed $prefetchRemoved item(s); $prefetchAfter still-locked entries queued for next-boot delete. Quick Access pins and Recent folder left intact."
         } catch {
             & $Log "  [Prefetch] partial clear: $($_.Exception.Message)"
         }
