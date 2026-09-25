@@ -128,19 +128,8 @@ $script:AiAppRootVars = @(
     '%APPDATA%\Copilot', '%LOCALAPPDATA%\Copilot'
 )
 
-# Empty these whole %APPDATA% profiles (KeepContainer). VS Code stays cache-only.
-$script:AiRoamingWipeVars = @(
-    '%APPDATA%\Cursor',
-    '%APPDATA%\Windsurf',
-    '%APPDATA%\trae',
-    '%APPDATA%\Trae',
-    '%APPDATA%\trae-ai',
-    '%APPDATA%\Devin',
-    '%APPDATA%\Antigravity',
-    '%APPDATA%\Antigravity IDE',
-    '%APPDATA%\kiro',
-    '%APPDATA%\Kiro'
-)
+# Preserved roaming profiles: never delete user configuration, settings, or chat DBs.
+$script:AiRoamingWipeVars = @()
 
 # Electron/Chromium cache folder names. Never User/, settings, or chat DBs.
 $script:AiCacheDirNames = @(
@@ -2032,36 +2021,18 @@ function Get-GeckoBrowserLabel {
 }
 
 $script:ChromiumCleanDirs = @(
-    "Cache", "Cache\Cache_Data", "Code Cache", "GPUCache", "Media Cache", "blob_storage",
-    "Service Worker", "Service Worker\CacheStorage", "Service Worker\ScriptCache",
-    "Local Storage", "IndexedDB", "Session Storage", "Application Cache",
-    "File System", "DawnCache", "DawnWebGPUCache", "DawnGraphiteCache",
-    "GrShaderCache", "ShaderCache", "Shared Dictionary",
-    "optimization_guide_hint_cache_store", "System Cache", "Tablo Cache",
-    "TurboAppCache", "Favorites Cache", "AutofillAiModelCache"
+    "Cache", "Code Cache", "GPUCache", "Media Cache",
+    "DawnCache", "DawnWebGPUCache", "DawnGraphiteCache",
+    "GrShaderCache", "ShaderCache"
 )
-$script:ChromiumCleanFiles = @(
-    "Cookies", "Cookies-journal", "History", "History-journal",
-    "Visited Links", "Top Sites", "Top Sites-journal",
-    "Shortcuts", "Shortcuts-journal", "Network Action Predictor",
-    "Favicons", "Favicons-journal",
-    "Extension Cookies", "QuotaManager", "Reporting and NEL", "Reporting and NEL-journal",
-    # Autofill / saved form-fill data (NOT passwords — Login Data is never in this list)
-    "Web Data", "Web Data-journal",
-    "Autofill", "Autofill-journal"
-)
+# NEVER delete Cookies, History, Web Data, Autofill, Favicons, or Bookmarks
+$script:ChromiumCleanFiles = @()
+
 $script:GeckoCleanDirs = @(
-    "cache2", "startupCache", "OfflineCache", "thumbnails", "jumpListCache",
-    "storage\default", "safebrowsing"
+    "cache2", "startupCache", "OfflineCache", "thumbnails", "jumpListCache"
 )
-$script:GeckoCleanFiles = @(
-    "cookies.sqlite", "cookies.sqlite-shm", "cookies.sqlite-wal",
-    "favicons.sqlite", "favicons.sqlite-shm", "favicons.sqlite-wal",
-    "webappsstore.sqlite", "content-prefs.sqlite", "permissions.sqlite",
-    "sessionCheckpoints.json",
-    # Firefox autofill / saved form fills (NOT passwords — key4.db/logins.json never touched)
-    "formhistory.sqlite", "formhistory.sqlite-shm", "formhistory.sqlite-wal"
-)
+# NEVER delete cookies.sqlite, places.sqlite, formhistory.sqlite, or webappsstore.sqlite
+$script:GeckoCleanFiles = @()
 
 function Clear-ChromiumBrowserCache {
     param([string]$UserDataPath)
@@ -2229,7 +2200,17 @@ function Clear-StoreAppTemp {
 
 function Test-CleanMgrCategorySelected {
     param([Parameter(Mandatory)][string]$Name)
-    if ($Name -match '(?i)download') { return $false }
+    # Strictly exclude Downloads, rollback files, update cleanup, and user file versions
+    $excluded = @(
+        'DownloadsFolder',
+        'Downloaded Program Files',
+        'Previous Installations',
+        'Update Cleanup',
+        'Upgrade Discarded Files',
+        'Windows ESD installation files',
+        'User file versions'
+    )
+    if ($Name -match '(?i)download' -or ($excluded -icontains $Name)) { return $false }
     return $true
 }
 
@@ -2390,51 +2371,8 @@ function Invoke-MyCleanPCCore {
         & $Log "  [Recycle Bin] skip: $($_.Exception.Message)"
     }
 
-    & $Log "-- STEP 4: Prefetch (Quick Access / Recent folder NOT touched) --"
-    $prefetchPath = "C:\Windows\Prefetch"
-    if (Test-Path $prefetchPath) {
-        try {
-            $prefetchBefore = @(Get-ChildItem -LiteralPath $prefetchPath -Force -ErrorAction SilentlyContinue).Count
-
-            # Pass 1: Full 3-stage Clear-SafeTempTree (del /f/s/q + robocopy /MIR + reboot-delete)
-            & $Log "  [Prefetch] Pass 1/3: 3-stage silent wipe (del + robocopy)..."
-            Clear-SafeTempTree $prefetchPath | Out-Null
-
-            # Pass 2: Aggressive cmd rd/s/q + del sweep on individual items
-            & $Log "  [Prefetch] Pass 2/3: cmd.exe rd/s/q on all subitems (Ctrl+A Shift+Del behavior)..."
-            foreach ($child in @(Get-ChildItem -LiteralPath $prefetchPath -Force -ErrorAction SilentlyContinue)) {
-                if (Test-SkipCleanPath $child.FullName) { continue }
-                if ($child.PSIsContainer) {
-                    Remove-PathViaCmd -LiteralPath $child.FullName -Recurse | Out-Null
-                } else {
-                    Remove-PathViaCmd -LiteralPath $child.FullName | Out-Null
-                }
-            }
-
-            # Pass 3: Extra robocopy MIR + .NET delete sweep (skip anything still locked = skip skip)
-            & $Log "  [Prefetch] Pass 3/3: Final robocopy + .NET sweep, locked files auto-skipped..."
-            Clear-DirectoryViaRobocopy $prefetchPath | Out-Null
-            foreach ($child in @(Get-ChildItem -LiteralPath $prefetchPath -Force -ErrorAction SilentlyContinue)) {
-                if (Test-SkipCleanPath $child.FullName) { continue }
-                Remove-PathViaDotNet -LiteralPath $child.FullName -Recurse | Out-Null
-            }
-
-            # Register every leftover locked file for deletion at next boot (Ctrl+Shift+Del permanent)
-            $leftover = @(Get-ChildItem -LiteralPath $prefetchPath -Force -ErrorAction SilentlyContinue)
-            foreach ($item in $leftover) {
-                if (Test-SkipCleanPath $item.FullName) { continue }
-                Register-DeleteOnReboot -LiteralPath $item.FullName
-            }
-
-            $prefetchAfter = @(Get-ChildItem -LiteralPath $prefetchPath -Force -ErrorAction SilentlyContinue).Count
-            $prefetchRemoved = [Math]::Max(0, $prefetchBefore - $prefetchAfter)
-            & $Log "  [Prefetch] Done. Removed $prefetchRemoved item(s); $prefetchAfter still-locked entries queued for next-boot delete. Quick Access pins and Recent folder left intact."
-        } catch {
-            & $Log "  [Prefetch] partial clear: $($_.Exception.Message)"
-        }
-    } else {
-        & $Log "  [Prefetch] path not found, skipped."
-    }
+    & $Log "-- STEP 4: Windows Prefetch (Preserved for system performance) --"
+    & $Log "  [Prefetch] Skipped: Windows Prefetch is safely preserved to maintain application launch speed."
 
     & $Log "-- STEP 5: Windows Disk Cleanup (C: drive, Downloads excluded) --"
     Invoke-CleanMgrSilent -Drive 'C:' -Log $Log | Out-Null
@@ -2538,13 +2476,10 @@ function Invoke-MyCleanPCCore {
     }
     & $Log "  [Thumbnail / Icon cache] cleared."
 
-    & $Log "-- STEP 7: Event Logs and DNS Cache --"
-    foreach ($logName in @("Application", "System", "Security", "Setup")) {
-        try { wevtutil cl $logName 2>&1 | Out-Null } catch {}
-        & $Log "  [Event Log: $logName] cleared."
-    }
+    & $Log "-- STEP 7: DNS Cache (Event Logs Preserved) --"
     try { Clear-DnsClientCache -ErrorAction Stop } catch { ipconfig /flushdns | Out-Null }
     & $Log "  [DNS Cache] flushed."
+    & $Log "  [Event Logs] Preserved intact for diagnostic integrity."
 
     # ---- Space-freed summary --------------------------------------------
     # Re-read drive free space and compute what was actually reclaimed.

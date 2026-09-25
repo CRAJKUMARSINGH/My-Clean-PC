@@ -9,7 +9,7 @@ if %errorLevel% neq 0 (
     exit /b
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Install-Both-Cleaners-Admin.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Install-Cleaners-Admin.ps1" -Task Both
 echo.
 echo Press any key to exit...
 pause >nul

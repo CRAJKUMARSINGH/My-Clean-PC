@@ -77,9 +77,13 @@ You can install **Both Cleaners**, the **7-Minute Cleaner ONLY**, the **24-Minut
 | **[`Launch-Install-7Min-Only.bat`](Launch-Install-7Min-Only.bat)** | Batch Launcher | **1-Click Launcher (7Min Only)**: Triggers UAC elevation and installs only `MyCleanPC-7Min`. |
 | **[`Launch-Install-24Min-Only.bat`](Launch-Install-24Min-Only.bat)** | Batch Launcher | **1-Click Launcher (24Min Only)**: Triggers UAC elevation and installs only `MyCleanPC-24Min`. |
 | **[`Launch-Install-Weekly-Only.bat`](Launch-Install-Weekly-Only.bat)** | Batch Launcher | **1-Click Launcher (Weekly Only)**: Triggers UAC elevation and installs only `MyCleanPC-Weekly`. |
-| **[`scripts/ai-cache-cleaner.ps1`](scripts/ai-cache-cleaner.ps1)** | PowerShell Cleaner Engine | **Primary Cleaner Engine**: Executes targeted cleanup of browser caches, cookies, history, storage, AI tool caches, AppData Roaming folders, temp files, and deletes registry `MachineGuid`. |
-| **[`scripts/clean-pc-core.ps1`](scripts/clean-pc-core.ps1)** | PowerShell Shared Core | **Shared Functions & Core Utilities**: Provides helper functions, directory size calculation, disk cleanup integration, and integrates `ai-cache-cleaner.ps1`. |
-| **[`scripts/cleanup_task.ps1`](scripts/cleanup_task.ps1)** | PowerShell Task Runner | **Weekly Task Runner**: Invoked by the weekly scheduled task to execute full cleaning operations. |
+| File / Script Path | Type | Function & Description |
+|---|---|---|
+| **[`scripts/Safe-Cleanup-Engine.ps1`](scripts/Safe-Cleanup-Engine.ps1)** | Core Safety Engine | **Evidence-Based Safe Engine**: Implements strict path whitelist validation, dry-run auditing, running process detection, byte-accurate space accounting, and non-destructive cache cleaning. |
+| **[`scripts/ai-cache-cleaner.ps1`](scripts/ai-cache-cleaner.ps1)** | Cleaner Wrapper | **Interval Cleaner**: Invokes `Safe-Cleanup-Engine.ps1` safely for user-session background tasks without touching cookies, passwords, history, or roaming configs. |
+| **[`scripts/clean-pc-core.ps1`](scripts/clean-pc-core.ps1)** | Shared Core Utility | **Shared Core Engine**: Manages deep temporary file cleanup, sanitized CleanMgr presets (with Downloads and rollback protection), and DNS cache flushing. |
+| **[`scripts/cleanup_task.ps1`](scripts/cleanup_task.ps1)** | Task Runner | **Weekly Task Runner**: Invoked by the weekly scheduled task to execute full safe cleaning. |
+| **[`tests/Test-PathSafety.ps1`](tests/Test-PathSafety.ps1)** | Automated Test Suite | **Path Safety & Integrity Tests**: Verifies rejection of protected directories (Downloads, credentials, history, system roots) and approval of valid cache paths. |
 | **[`uninstall.ps1`](uninstall.ps1)** | PowerShell Uninstaller | **Uninstaller Script**: Unregisters all `MyCleanPC` scheduled tasks and removes installation directories from `%LOCALAPPDATA%\MyCleanPC`. |
 | **[`uninstall.bat`](uninstall.bat)** | Batch Uninstaller | **1-Click Batch Uninstaller**: Launches `uninstall.ps1` with Administrator privileges. |
 
@@ -89,20 +93,25 @@ You can install **Both Cleaners**, the **7-Minute Cleaner ONLY**, the **24-Minut
 
 | Target Area | Scope & Details |
 |---|---|
-| **Browsers (Ctrl+Shift+Delete)** | Chrome, Edge, Brave, Vivaldi, Firefox, Opera, Yandex, Genspark<br>• Cache, Code Cache, GPUCache<br>• Cookies & Network Persistent State<br>• Browsing & Visited History<br>• Local Storage, Session Storage, IndexedDB, Service Worker Cache |
-| **AI Tools & App Roaming** | Antigravity IDE, Cursor, DEVIN, KIRO, TRAE, foobar2000-v2, Windsurf AppData Local & Roaming caches/logs |
-| **Windows Junk** | `%TEMP%`, `%LOCALAPPDATA%\Temp`, older temp files |
-| **Registry Entry** | Deletes `HKLM:\SOFTWARE\Microsoft\Cryptography` -> `MachineGuid` |
+| **Modern Browser Caches** | Chrome (all profiles), Edge, Firefox, Brave, Vivaldi, Opera<br>• `Cache`, `Code Cache` (js/wasm), `GPUCache`, `ShaderCache`, `DawnCache`<br>• Firefox `cache2`, `startupCache`, `jumpListCache`, `thumbnails` |
+| **AI Tools & Developer Caches** | Cursor, Windsurf, VS Code, Devin, Trae, Antigravity IDE<br>• Local `%LOCALAPPDATA%` cache subdirectories only |
+| **Windows Temporary Files** | `%TEMP%`, `%LOCALAPPDATA%\Temp` (preserving files modified in the last 24h)<br>• `C:\Windows\Temp` (unlocked temp files with Admin rights) |
+| **Windows System Caches** | Thumbnail Cache, Icon Cache, safe CleanMgr preset (sanitized) |
 
 ---
 
 ## 🛡️ What It Never Touches (Safeguards)
 
-- **Passwords** — `Login Data`, `key4.db`, `logins.json`, credential stores
-- **Autofill / Form Data** — `formhistory.sqlite`, `Autofill`
-- **Bookmarks** — `Bookmarks`, `bookmarks.html`
-- **Downloads Folder** — `Downloads`
-- **Explorer Pins / Quick Access**
+- **Downloads Folder** — `%USERPROFILE%\Downloads` is 100% PRESERVED with strict path barriers.
+- **Passwords & Vaults** — `Login Data`, `key4.db`, `logins.json`, credential stores are NEVER touched.
+- **Bookmarks & Favorites** — `Bookmarks`, `places.sqlite`, bookmarks HTML are NEVER touched.
+- **Cookies & Sessions** — `Cookies`, `Network\Cookies`, `cookies.sqlite` are NEVER touched.
+- **Browsing History** — `History`, `Visited Links`, `places.sqlite` are NEVER touched.
+- **Autofill / Form Data** — `Web Data`, `formhistory.sqlite`, `Autofill` are NEVER touched.
+- **Roaming Profiles & Settings** — `%APPDATA%\Cursor`, `%APPDATA%\Windsurf`, `%APPDATA%\Antigravity IDE` configurations and chats are NEVER touched.
+- **Windows Prefetch & Event Logs** — Preserved intact to prevent performance degradation and maintain system diagnostic logs.
+- **Registry MachineGuid** — Strictly off-limits to preserve Windows activation and licensing integrity.
+- **Windows Update Rollback Files** — `Previous Installations` (`Windows.old`) and restore points are NEVER deleted.
 
 ---
 

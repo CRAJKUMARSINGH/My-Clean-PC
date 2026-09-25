@@ -30,12 +30,14 @@ if (-not (Test-Path $InstallDir)) {
 }
 
 Write-Host "1. Copying cleaner scripts to $InstallDir..." -ForegroundColor Cyan
+Copy-Item -Force (Join-Path $ScriptsDir "Safe-Cleanup-Engine.ps1") (Join-Path $InstallDir "Safe-Cleanup-Engine.ps1")
 Copy-Item -Force (Join-Path $ScriptsDir "ai-cache-cleaner.ps1") (Join-Path $InstallDir "ai-cache-cleaner.ps1")
 Copy-Item -Force (Join-Path $ScriptsDir "clean-pc-core.ps1") (Join-Path $InstallDir "clean-pc-core.ps1")
 Copy-Item -Force (Join-Path $ScriptsDir "cleanup_task.ps1") (Join-Path $InstallDir "cleanup_task.ps1")
 
-# Create SYSTEM principal for background task execution
-$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+# Create Interactive user principal for background task execution so user %LOCALAPPDATA% and browser caches are accessed
+$currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+$principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Highest
 
 $install7Min   = ($Task -eq "Both" -or $Task -eq "7Min")
 $install24Min  = ($Task -eq "24Min")
@@ -54,12 +56,12 @@ if ($install7Min) {
     Unregister-ScheduledTask -TaskName $Task1Name -Confirm:$false -ErrorAction SilentlyContinue
     try {
         Register-ScheduledTask -TaskName $Task1Name -Action $Action1 -Trigger $Trigger1 -Settings $Settings1 -Principal $principal -Force | Out-Null
-        Write-Host "  MyCleanPC-7Min registered cleanly via PowerShell API." -ForegroundColor Green
+        Write-Host "  MyCleanPC-7Min registered cleanly via PowerShell API (User: $currentUser)." -ForegroundColor Green
     } catch {
         Write-Host "  Retrying MyCleanPC-7Min via schtasks.exe..." -ForegroundColor Yellow
         $tr1 = "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$Task1Script`""
         $startAtStr = (Get-Date).AddMinutes(1).ToString('HH:mm')
-        & schtasks.exe /Create /TN $Task1Name /TR $tr1 /SC ONCE /ST $startAtStr /RI 7 /DU 9999:00 /RU SYSTEM /F | Out-Null
+        & schtasks.exe /Create /TN $Task1Name /TR $tr1 /SC ONCE /ST $startAtStr /RI 7 /DU 9999:00 /RU $currentUser /RL HIGHEST /F | Out-Null
     }
 }
 
@@ -76,12 +78,12 @@ if ($install24Min) {
     Unregister-ScheduledTask -TaskName $Task1Name -Confirm:$false -ErrorAction SilentlyContinue
     try {
         Register-ScheduledTask -TaskName $Task1Name -Action $Action1 -Trigger $Trigger1 -Settings $Settings1 -Principal $principal -Force | Out-Null
-        Write-Host "  MyCleanPC-24Min registered cleanly via PowerShell API." -ForegroundColor Green
+        Write-Host "  MyCleanPC-24Min registered cleanly via PowerShell API (User: $currentUser)." -ForegroundColor Green
     } catch {
         Write-Host "  Retrying MyCleanPC-24Min via schtasks.exe..." -ForegroundColor Yellow
         $tr1 = "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$Task1Script`""
         $startAtStr = (Get-Date).AddMinutes(2).ToString('HH:mm')
-        & schtasks.exe /Create /TN $Task1Name /TR $tr1 /SC ONCE /ST $startAtStr /RI 24 /DU 9999:00 /RU SYSTEM /F | Out-Null
+        & schtasks.exe /Create /TN $Task1Name /TR $tr1 /SC ONCE /ST $startAtStr /RI 24 /DU 9999:00 /RU $currentUser /RL HIGHEST /F | Out-Null
     }
 }
 
@@ -97,11 +99,11 @@ if ($installWeekly) {
     Unregister-ScheduledTask -TaskName $Task2Name -Confirm:$false -ErrorAction SilentlyContinue
     try {
         Register-ScheduledTask -TaskName $Task2Name -Action $Action2 -Trigger $Trigger2 -Settings $Settings2 -Principal $principal -Force | Out-Null
-        Write-Host "  MyCleanPC-Weekly registered cleanly via PowerShell API." -ForegroundColor Green
+        Write-Host "  MyCleanPC-Weekly registered cleanly via PowerShell API (User: $currentUser)." -ForegroundColor Green
     } catch {
         Write-Host "  Retrying MyCleanPC-Weekly via schtasks.exe..." -ForegroundColor Yellow
         $tr2 = "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$Task2Script`""
-        & schtasks.exe /Create /TN $Task2Name /TR $tr2 /SC WEEKLY /D MON /ST 09:00 /RU SYSTEM /F | Out-Null
+        & schtasks.exe /Create /TN $Task2Name /TR $tr2 /SC WEEKLY /D MON /ST 09:00 /RU $currentUser /RL HIGHEST /F | Out-Null
     }
 }
 

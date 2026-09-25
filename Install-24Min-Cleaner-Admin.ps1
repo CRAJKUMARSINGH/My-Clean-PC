@@ -30,7 +30,7 @@ Write-Host ""
 # ---------- STEP 1: Deploy latest scripts ----------
 Write-Host "[1/3] Deploying latest scripts to $InstallDir ..." -ForegroundColor Green
 if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null }
-foreach ($f in @('ai-cache-cleaner.ps1','clean-pc-core.ps1','cleanup_task.ps1')) {
+foreach ($f in @('Safe-Cleanup-Engine.ps1','ai-cache-cleaner.ps1','clean-pc-core.ps1','cleanup_task.ps1')) {
     $src = Join-Path $RepoScript $f
     $dst = Join-Path $InstallDir $f
     if (Test-Path $src) {
@@ -43,15 +43,16 @@ foreach ($f in @('ai-cache-cleaner.ps1','clean-pc-core.ps1','cleanup_task.ps1'))
 }
 Write-Host ""
 
-# ---------- STEP 2: Register 24-Min scheduled task (SYSTEM) ----------
-Write-Host "[2/3] Registering scheduled task '$TaskName' (runs every 24 minutes as SYSTEM) ..." -ForegroundColor Green
+# ---------- STEP 2: Register 24-Min scheduled task (Current User, Highest) ----------
+$currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+Write-Host "[2/3] Registering scheduled task '$TaskName' (runs every 24 minutes for $currentUser) ..." -ForegroundColor Green
 
 $taskScript = Join-Path $InstallDir 'ai-cache-cleaner.ps1'
 $action     = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$taskScript`""
 $startAt    = (Get-Date).AddMinutes(2)
 $trigger    = New-ScheduledTaskTrigger -Once -At $startAt -RepetitionInterval (New-TimeSpan -Minutes 24) -RepetitionDuration (New-TimeSpan -Days 9999)
 $settings   = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -MultipleInstances IgnoreNew -StartWhenAvailable -DontStopIfGoingOnBatteries -AllowStartIfOnBatteries -Priority 7
-$principal  = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+$principal  = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Highest
 
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 try {
@@ -61,7 +62,7 @@ try {
     Write-Host "       API failed, retrying via schtasks.exe ..." -ForegroundColor Yellow
     $tr = 'powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $taskScript + '"'
     $startStr = $startAt.ToString('HH:mm')
-    & schtasks.exe /Create /TN $TaskName /TR $tr /SC ONCE /ST $startStr /RI 24 /DU 9999:00 /RU SYSTEM /RL HIGHEST /F | Out-Null
+    & schtasks.exe /Create /TN $TaskName /TR $tr /SC ONCE /ST $startStr /RI 24 /DU 9999:00 /RU $currentUser /RL HIGHEST /F | Out-Null
     if ($LASTEXITCODE -eq 0) { Write-Host "       OK  registered via schtasks.exe fallback" -ForegroundColor Green }
     else { Write-Host "       FAILED to register task (exit=$LASTEXITCODE)" -ForegroundColor Red }
 }
