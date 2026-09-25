@@ -15,13 +15,13 @@ Choose **Method A** or **Method B**:
 #### Method A — Using Git (Recommended)
 Open PowerShell or Command Prompt and run:
 ```powershell
-git clone https://github.com/CRAJKUMARSINGH/My-Clean-PC.git
-cd My-Clean-PC
+git clone https://github.com/CRAJKUMARSINGH/my-clean-pc.git
+cd my-clean-pc
 ```
 
 #### Method B — Direct ZIP Download (Without Git)
 1. Click the green **Code** button on GitHub and select **Download ZIP** (or download from the repository page).
-2. Extract the ZIP archive to a folder on your computer (e.g., `E:\My-Clean-PC` or `C:\My-Clean-PC`).
+2. Extract the ZIP archive to a folder on your computer (e.g., `E:\my-clean-pc` or `C:\my-clean-pc`).
 3. Open PowerShell or Command Prompt in that extracted folder.
 
 ---

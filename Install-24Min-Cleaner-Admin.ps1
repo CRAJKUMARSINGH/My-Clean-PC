@@ -5,7 +5,7 @@
 
 param([switch]$Elevated)
 
-$RepoDir    = 'e:\Rajkumar\My-Clean-PC'
+$RepoDir    = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
 $RepoScript = Join-Path $RepoDir 'scripts'
 $InstallDir = Join-Path $env:LOCALAPPDATA 'MyCleanPC'
 $TaskName   = 'MyCleanPC-24Min'
