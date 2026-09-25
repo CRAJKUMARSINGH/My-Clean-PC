@@ -42,23 +42,30 @@ if (-not (Test-Path -LiteralPath $enginePath)) {
     }
 }
 
-if ([string]::IsNullOrWhiteSpace($LogFile)) {
-    $LogFile = Join-Path $scriptDir "ai_cleaner_log.txt"
-}
+# Preserve caller bound parameters before dot-sourcing engine
+$isDryRun = ($PSBoundParameters.ContainsKey('DryRun') -and [bool]$DryRun)
+$isClean  = ($PSBoundParameters.ContainsKey('Clean') -and [bool]$Clean)
+$isForceClose = ($PSBoundParameters.ContainsKey('ForceCloseBrowsers') -and [bool]$ForceCloseBrowsers)
+$isIncludeSystem = ($PSBoundParameters.ContainsKey('IncludeSystemTemp') -and [bool]$IncludeSystemTemp)
+$customLog = $LogFile
 
 # Dot-source the safe engine
 . $enginePath
 
+if ([string]::IsNullOrWhiteSpace($customLog)) {
+    $customLog = Join-Path $scriptDir "ai_cleaner_log.txt"
+}
+
 # Default behavior: If invoked with no switches (e.g. from scheduled task), execute safe -Clean
-$runClean = $Clean
-if (-not $DryRun -and -not $Clean) {
+$runClean = $isClean
+if (-not $isDryRun -and -not $isClean) {
     $runClean = $true
 }
 
 # Run the safe cleaner
 Invoke-SafeWindows10Cleanup `
-    -DryRun:$DryRun `
+    -DryRun:$isDryRun `
     -Clean:$runClean `
-    -ForceCloseBrowsers:$ForceCloseBrowsers `
-    -IncludeSystemTemp:$IncludeSystemTemp `
-    -LogFile $LogFile
+    -ForceCloseBrowsers:$isForceClose `
+    -IncludeSystemTemp:$isIncludeSystem `
+    -LogFile $customLog

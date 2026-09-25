@@ -567,6 +567,20 @@ function Format-SizeDisplay {
 # -----------------------------------------------------------------------------
 
 function Invoke-SafeWindows10Cleanup {
+    [CmdletBinding()]
+    param(
+        [switch]$DryRun,
+        [switch]$Clean,
+        [switch]$IncludeSystemTemp,
+        [switch]$ForceCloseBrowsers,
+        [switch]$Force,
+        [string]$LogFile = ""
+    )
+
+    if ([string]::IsNullOrWhiteSpace($LogFile)) {
+        $LogFile = $script:LogFile
+    }
+
     Write-EngineLog "============================================================" "AUDIT"
     Write-EngineLog "   Safe, Evidence-Based Windows 10 Cache Cleaner Engine" "AUDIT"
     Write-EngineLog "============================================================" "AUDIT"
